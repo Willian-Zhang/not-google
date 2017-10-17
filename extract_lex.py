@@ -10,7 +10,7 @@ from collections import Counter
 from langid.langid import LanguageIdentifier, model
 Language = LanguageIdentifier.from_modelstring(model, norm_probs=True)
 
-import jieba
+
 
 # Options
 parser = argparse.ArgumentParser(description='Extract Lexicons from WETs')
@@ -20,6 +20,9 @@ parser.add_argument('-b','--binary', action='store_true',
                     help='output docID and freqauncy as binary form')
 parser.add_argument('-s','--startID', metavar='<number>', type=int, default=0,
                     help='Starting ID for docID Assigment')
+
+parser.add_argument('--skipChinese', action='store_true',
+                    help='if set, will not parse chinese words')
 
 
 # UUID
@@ -31,6 +34,9 @@ parser.add_argument('-c','--compressuuid', action='store_true',
 
 args = parser.parse_args()
 
+if not args.skipChinese:
+    import jieba
+
 # constants
 space_devided_langs = ['en','fr','de','it','la','es']
 latin_sep_words = r"\W+"
@@ -41,7 +47,7 @@ from modules import NumberGenerator
 
 docIDDigits = 4
 frequancyDigits = 2
-docIdGenerator = NumberGenerator.Number(digits = docIDDigits, start = args.startID)
+docIdGenerator = NumberGenerator.Number(digits=docIDDigits, after=args.startID)
 for filepath in args.files:
     print("* Dealing:", filepath, file=sys.stderr)
     with warc.open(filepath, 'rb') as f:
@@ -52,7 +58,7 @@ for filepath in args.files:
                 lang = Language.classify(content)
                 if lang[0] in space_devided_langs:
                     words = latin_sep_words.split(str(content))
-                elif lang[0] == 'zh':
+                elif lang[0] == 'zh' and not args.skipChinese:
                     words = jieba.cut_for_search(content)
                     words = [word for word in words if word not in chinese_stop_words]
                 else:
@@ -67,14 +73,14 @@ for filepath in args.files:
                     uuid = UUID(uuid)
                     if args.compressuuid:
                         uuid = slugid.encode(uuid)
-                    [print("{word}\t{uuid}\{count}".format(
-                            word=word, uuid=uuid.decode('ascii'), count= count
-                            )) 
-                        for (word, count) in words]
+                    [print("{word}\t{uuid} {count}".format(
+                        word=word, uuid=uuid.decode('ascii'), count=count
+                        ))
+                     for (word, count) in words]
                 else:
                     docID = docIdGenerator.next()
                     if args.binary:
-                        docID = docID.to_bytes(docIDDigits,'little', signed=True)
+                        docID = docID.to_bytes(docIDDigits, 'little', signed=True)
                     else:
                         docID = str(docID)
                     for (word, count) in words: 
@@ -82,11 +88,11 @@ for filepath in args.files:
                         sys.stdout.write('\t')
                         if args.binary:
                             sys.stdout.buffer.write(docID)
-                            sys.stdout.write('\t')
+                            sys.stdout.write(' ')
                             sys.stdout.buffer.write(count.to_bytes(frequancyDigits,'little', signed=True))
                         else:
                             sys.stdout.write(docID)
-                            sys.stdout.write('\t')
+                            sys.stdout.write(' ')
                             sys.stdout.write(str(count))
                         sys.stdout.write('\n')
                             
