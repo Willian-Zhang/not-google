@@ -5,6 +5,7 @@ from uuid import UUID
 import argparse
 import slugid
 from collections import Counter
+from tqdm import tqdm
 
 # NLP
 from langid.langid import LanguageIdentifier, model
@@ -19,11 +20,15 @@ parser.add_argument('files', metavar='<filepath>', nargs='+',
 parser.add_argument('-b','--binary', action='store_true',
                     help='output docID and freqauncy as binary form')
 parser.add_argument('-s','--startID', metavar='<number>', type=int, default=0,
-                    help='Starting ID for docID Assigment')
+                    help='docID Assigment starting after ID')
 
 parser.add_argument('--skipChinese', action='store_true',
                     help='if set, will not parse chinese words')
 
+parser.add_argument('-T', '--urlTable', metavar='<filepath>',
+                    help='if set, will append urlTable to file')
+parser.add_argument('--bufferSize', metavar='<number>', type=int, default=100,
+                    help='Buffer Size for URL Table Writing')
 
 # UUID
 parser.add_argument('-u','--uuid', action='store_true',
@@ -36,31 +41,39 @@ args = parser.parse_args()
 
 if not args.skipChinese:
     import jieba
+    list(jieba.cut(""))
+
 
 # constants
 space_devided_langs = ['en','fr','de','it','la','es']
-latin_sep_words = r"\W+"
-chinese_stop_words = ['，', '\n','。',',', '.' ,'？','|',']','！','（','）', ' ', '\t']
+latin_sep_words = re.compile(r"\W+")
+# deprecated use non_latin_words_pattern
+# chinese_stop_words = ['，', '\n','。',',', '.' ,'？','|',']','！','（','）', ' ', '\t']
 global_escape_words = [b'\x00']
+non_latin_words_pattern = re.compile(r"([^\u0000-\u007F]|\w)+")
 
 from modules import NumberGenerator
 
 docIDDigits = 4
 frequancyDigits = 2
 docIdGenerator = NumberGenerator.Number(digits=docIDDigits, after=args.startID)
+
+if args.urlTable:
+    fileURLTable = open(args.urlTable, mode='a', buffering=args.bufferSize)
+
 for filepath in args.files:
     print("* Dealing:", filepath, file=sys.stderr)
     with warc.open(filepath, 'rb') as f:
-        for record in f:
+        for record in tqdm(f, unit='records'):
             URI = record.header.get('warc-target-uri')
             content = record.payload.read()
             if URI is not None and content is not None:
-                lang = Language.classify(content)
-                if lang[0] in space_devided_langs:
+                (lang, langConfidence) = Language.classify(content)
+                if lang in space_devided_langs:
                     words = latin_sep_words.split(str(content))
-                elif lang[0] == 'zh' and not args.skipChinese:
-                    words = jieba.cut_for_search(content)
-                    words = [word for word in words if word not in chinese_stop_words]
+                elif lang == 'zh' and not args.skipChinese:
+                    words = jieba.cut(content, cut_all=False)
+                    words = [word for word in words if len(word)<100 and non_latin_words_pattern.match(word)]
                 else:
                     # other languages
                     continue
@@ -79,6 +92,10 @@ for filepath in args.files:
                      for (word, count) in words]
                 else:
                     docID = docIdGenerator.next()
+                    if args.urlTable:
+                        print("{docID}\t{url}\t{lan}".format(docID=docID, url=URI, lan=lang)
+                              , file=fileURLTable)
+                        # fileURLTable.write("{docID}\t{url}\t{lan}".format(docID=docID, url=URI, lan=lang))
                     if args.binary:
                         docID = docID.to_bytes(docIDDigits, 'little', signed=True)
                     else:
@@ -96,3 +113,5 @@ for filepath in args.files:
                             sys.stdout.write(str(count))
                         sys.stdout.write('\n')
                             
+if args.urlTable:
+    fileURLTable.close()
