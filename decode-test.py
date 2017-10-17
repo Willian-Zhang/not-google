@@ -15,7 +15,18 @@ args = parser.parse_args()
 
 for filepath in args.files:
     with open(filepath, mode='rb') as f:
+        i = 1
+        prevLine=None
         for line in f.readlines():
-            (word, doc) = line.split(b'\t')
-            print(word.decode('utf-8'))
+            try:
+                (word, doc) = line.split(b'\t')
+                word.decode()
+            except Exception as e:
+                print(e, i)
+                print(prevLine)
+                print(line)
+            finally:
+                i+=1
+                prevLine = line
+
         

@@ -100,18 +100,16 @@ for filepath in args.files:
                         docID = docID.to_bytes(docIDDigits, 'little', signed=True)
                     else:
                         docID = str(docID)
-                    for (word, count) in words: 
-                        sys.stdout.write(word)
-                        sys.stdout.write('\t')
-                        if args.binary:
-                            sys.stdout.buffer.write(docID)
-                            sys.stdout.write(' ')
-                            sys.stdout.buffer.write(count.to_bytes(frequancyDigits,'little', signed=True))
-                        else:
-                            sys.stdout.write(docID)
-                            sys.stdout.write(' ')
-                            sys.stdout.write(str(count))
-                        sys.stdout.write('\n')
+                    if args.binary:
+                        for (word, count) in words: 
+                            sys.stdout.buffer.write(word.encode() +
+                                             b'\t' + docID + b' ' +
+                                             str(count).encode() +
+                                             b'\n')
+                    else:
+                        for (word, count) in words: 
+                            print("{word}\t{docID} {count}".format(word=word, docID=docID, count=str(count))
+                                , file = sys.stdout)
                             
 if args.urlTable:
     fileURLTable.close()
