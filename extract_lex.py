@@ -37,7 +37,7 @@ latin_sep_words = r"\W+"
 chinese_stop_words = ['，', '\n','。',',', '.' ,'？','|',']','！','（','）', ' ', '\t']
 global_escape_words = [b'\x00']
 
-from lib import NumberGenerator
+from modules import NumberGenerator
 
 docIDDigits = 4
 frequancyDigits = 2
