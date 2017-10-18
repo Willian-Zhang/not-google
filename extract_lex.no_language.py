@@ -7,11 +7,6 @@ import slugid
 from collections import Counter
 from tqdm import tqdm
 
-# NLP
-from langid.langid import LanguageIdentifier, model
-Language = LanguageIdentifier.from_modelstring(model, norm_probs=True)
-
-
 
 # Options
 parser = argparse.ArgumentParser(description='Extract Lexicons from WETs')
@@ -21,9 +16,6 @@ parser.add_argument('-b','--binary', action='store_true',
                     help='output docID as binary form')
 parser.add_argument('-s','--startID', metavar='<number>', type=int, default=0,
                     help='docID Assigment starting after ID')
-
-parser.add_argument('--skipChinese', action='store_true',
-                    help='if set, will not parse chinese words')
 
 parser.add_argument('-T', '--urlTable', metavar='<filepath>',
                     help='if set, will append urlTable to file')
@@ -39,16 +31,8 @@ parser.add_argument('-c','--compressuuid', action='store_true',
 
 args = parser.parse_args()
 
-if not args.skipChinese:
-    import jieba
-
-# constants
-space_devided_langs = ['en','fr','de','it','la','es']
 latin_sep_words = re.compile(r"\W+")
-# deprecated use non_latin_words_pattern
-# chinese_stop_words = ['，', '\n','。',',', '.' ,'？','|',']','！','（','）', ' ', '\t']
-global_escape_words = [b'\x00']
-non_latin_words_pattern = re.compile(r"([^\u0000-\u007F]|\w)+")
+latin_words_pattern = re.compile(r"\w+")
 
 from modules import NumberGenerator
 
@@ -66,17 +50,8 @@ for filepath in args.files:
             URI = record.header.get('warc-target-uri')
             content = record.payload.read()
             if URI is not None and content is not None:
-                (lang, langConfidence) = Language.classify(content)
-                if lang in space_devided_langs:
-                    words = latin_sep_words.split(str(content))
-                elif lang == 'zh' and not args.skipChinese:
-                    words = jieba.cut(content, cut_all=False)
-                    words = [word for word in words if len(word)<100 and non_latin_words_pattern.match(word)]
-                else:
-                    # other languages
-                    continue
+                words = latin_sep_words.split(str(content))
 
-                words = [ word for word in words if word not in global_escape_words]
                 words = [(k, v) for (k,v) in Counter(words).items()]
 
                 if args.uuid:
@@ -91,7 +66,7 @@ for filepath in args.files:
                 else:
                     docID = docIdGenerator.next()
                     if args.urlTable:
-                        print("{docID}\t{url}\t{lan}".format(docID=docID, url=URI, lan=lang)
+                        print("{docID}\t{url}".format(docID=docID, url=URI)
                               , file=fileURLTable)
                         # fileURLTable.write("{docID}\t{url}\t{lan}".format(docID=docID, url=URI, lan=lang))
                     if args.binary:
