@@ -37,7 +37,7 @@ Build Inverted Index upon wet file
 
 # Features
 * Language detection
-* Chinese support along with latin-charactor based languages
+* Chinese support along with latin-character based languages
 * Binary I/O and Stroage
 * Progress & Speed display
 * Text Frequncy (TF) in documents
@@ -272,8 +272,8 @@ The number of encoding bytes are chosen for $4$ as default so there would be $(2
 
 > Why $-3$ ?
 
-The $-3$ was for `\t` `space` and `\n`  3 different kinds of seperation charactors.
-Those charactors are used to seperate words document IDs frequency and future added features.
+The $-3$ was for `\t` `space` and `\n`  3 different kinds of seperation characters.
+Those characters are used to seperate words document IDs frequency and future added features.
 
 Compare with plain text number entroy $10$ out of $2^8=256$, $2^8-3$ is a much better figure.
 
