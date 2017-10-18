@@ -1,5 +1,6 @@
 # DATA
-data/
+data/*
+!data/wet.paths
 
 # ===== VSCode =====
 .vscode/

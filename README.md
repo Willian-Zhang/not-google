@@ -15,16 +15,25 @@ Build Inverted Index upon wet file
       * [Lexicon extraction](#lexicon-extraction)
       * [Sort Merging](#sort-merging)
     * [Actual usage](#actual-usage)
-* [extract all wet files in `data/wet`](#extract-all-wet-files-in-`data/wet`)
     * [More options](#more-options)
   * [Notes on Running on Servers](#notes-on-running-on-servers)
     * [HPC](#hpc)
       * [Load Python 3 module](#load-python-3-module)
+* [Benchmark](#benchmark)
+  * [Speed](#speed)
+    * [Full mode](#full-mode)
+    * [No Chinese mode](#no-chinese-mode)
+    * [Dumb mode](#dumb-mode)
+    * [Merging and Sorting](#merging-and-sorting)
+  * [Size](#size)
+  * [Memory](#memory)
 * [How it works](#how-it-works)
   * [Questions](#questions)
-* [Benchmark](#benchmark)
 * [Future Work](#future-work)
   * [Distributed](#distributed)
+  * [Speed up](#speed-up)
+  * [Query optimization](#query-optimization)
+* [Development](#development)
 
 # Features
 * Language detection
@@ -35,6 +44,7 @@ Build Inverted Index upon wet file
 
 # How to run
 ## Requirements
+* Linux/ macOS/ OS with GNU tools
 * Python 3.4+
 
 ## Installation
@@ -97,7 +107,7 @@ Example usage is not practical when you wants to:
 So there are smarter version provided for these needs:
 
 ``` bash
-# extract all wet files in `data/wet`
+ # extract all wet files in `data/wet`
 $ ./scripts/extract-all.sh 
 * Dealing: data/wet/CC-MAIN-20170919112242-20170919132242-00000.warc.wet.gz
 Building prefix dict from the default dictionary ...
@@ -196,7 +206,7 @@ $ python extract_lex.no_language.py --binary data/wet/* > "data/delete-this.log"
 ~ 513 records/s
 ~ 1.3 min/wet
 
-Speed is significantly faster however in this mode search result is going to be farily bad.
+Speed is significantly faster however in this mode search result is going to be farily bad, beacuse all languages are jammed together. And for non-latin language it's even un-searchable.
 
 ### Merging and Sorting
 ``` bash
@@ -211,10 +221,25 @@ $ ./scripts/merge.sh
 ~ $15k$  inverted lists/MB
 
 ``` bash
-# count line using:
-cat "data/inverted-index.ii" | wc -l
+ #count line using:
+$ cat "data/inverted-index.ii" | wc -l
 ```
 
+## Memory
+
+Depends on buffer size, for default
+
+
+|      Lexicon Extraction (and sort)       |                  Merge                   |
+| :--------------------------------------: | :--------------------------------------: |
+|                  <1GiB                   |                 < 15MiB                  |
+| ![Figure Merge](miscellaneous/Figure_extract.png) | ![Figure Merge](miscellaneous/Figure_merge.png) |
+
+The memory usage are mostly used by GNU Unix Sort, by default GNU Unix Sort would take 80% of system, after that sort would use temprary file to store them.
+
+Luckily mordern computers has a memory typically much greater than 1GiB. So as long as the wet file size maintain as the current scale, this would't be a problem. 
+
+(In other words, on very low memory computers,  it might slow down. )
 
 
 
@@ -222,35 +247,125 @@ cat "data/inverted-index.ii" | wc -l
 ![Sturcture](miscellaneous/Structure.png)
 
 ## Questions
+
 > Why so slow?
 
-Because Language Detect and Chinese Word Seperate 
+Because Language Detect and Chinese Word Seperate uses HMM model (pre-trained) to compute. They are computational intensive.
+
+
+
 > How much docIDs are supported? Why?
 
 In short: ~2 billion.
 
-The encoding binary encoding entroy used for docID generation was $(256-3) = 253$ out of $256$ per byte.
+The binary encoding entroy used for docID generation was $(256-3) = 253$ out of $256$ per byte.
 
 The number of encoding bytes are chosen for $4$ as default so there would be $(256-3)^3 \times (128-3)-2 = 2,024,284,623 \approx 2 \text{ billion}$  documents supported.
+
+
 
 > Why $-3$ ?
 
 The $-3$ was for `\t` `space` and `\n`  3 different kinds of seperation charactors.
 Those charactors are used to seperate words document IDs frequency and future added features.
 
+Compare with plain text number entroy $10$ out of $2^8=256$, $2^8-3$ is a much better figure.
+
+
+
+> Why unix sort?
+
+Unix sort is incredibaly fast and supports streaming.
+
+The encoding had been paid much care to support using unix sort.
+
+
+
 > Is Unix Sort ok?
 
-They are, as long as you treat the stram as binary, I set flag `LC_ALL=C` to make it work.
-
-> Why encode docID in binary form not
+They are, as long as you treat the stram as binary, I set flag `LC_ALL=C` to do that.
 
 
 
+> Why encode docID in binary form not Text Frequncies (IF)?
+
+Because **most** TF are below 10. They take up 1 byte to store. Thus using binary form for it **won't benifit** much.
+
+Hence designing and **computing** each time when accessing an encoding that convert to and from number would both take more time.
+
+
+
+> Why Merge Stage take so little memory ?
+
+Beacuse the design of `merge.py` has take as much advantage of streaming as possible. 
+
+It doesn't wait till an Inverted List is completed to unload memory, it streams out all `doc Item` as long as they get them.
+
+
+
+> Why not C++
+
+Beacuse most C++ statements are in not-human-like language, I want to keep myself human :)
+
+Actually there are language that are close to C++ level of proformance  e.g. Swift, Go 
+
+The real reason are:
+
+* Packages on high level langauges are richer than C++
+
+* I'm personally not confident with C++ knowledge (learn to use STL someday?)
+
+* C++ design patterns are not singlar, roughly going into it would cause mix use of different "flavor  of codes", which I'm not fond of.
+
+  ​
 
 
 
 # Future Work 
+
+There are several works can be done easily but requires more careful thoughts
+
 ## Distributed
+
+The whole program is written in a `Map and Reduce` concept. They can be easily ported to Hadoop MapReduce. Here is a list of what has been done:
+
+* Python package distribution with virtual env support using Hadoop
+* UUID and UUID compression support (higher entroy encoding for UUID)
+
+And what to be done is:
+
+* Map Reduce compatiple URLTable Generation
+* Glue code to pipe them all
+
+
+
+Considering Hadoop Stream isn't actually efficient, Spark would be a good replacement for that, though how to port `Language Detection ` and `Chinese Support` to Scala and Spark.
+
+
+
+## Speed up
+
+Change a language like `Go` might incredibaly speed up exection. (But packages?)
+
+How about keep using python? Regex used in the current implentation can be further optimized to speed up.
+
+
+
+## Query optimization
+
+Query process requires to read out the wet file efficiently, building index on wet file is considered nessary.
+
+This project had been use a modified python package  `warc` . It has been modified to support reading `wet` files to adapt to this project (check [warc3-wet](https://github.com/Willian-Zhang/warc3) ). Futher modification is required for support fast lookup in wet files.
+
+
+
+Also `ii` file could be further compressed using text compression among with incremental docIDs (which will not work on UUID aka. distibuted system) block by block.
+
+
+
+`IDF` calculations may also be pre-calculated.
+
+
 
 # Development
 Add new requirements if new python packages are used
