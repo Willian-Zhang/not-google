@@ -117,7 +117,7 @@ Scripts are created for copying necessary exectables to server. Use of example:
 $ ./scripts/deploy.sh user@server:path
 ```
 # How it works
-![Sturcture](miscellaneous/Sturcture.png)
+![Sturcture](https://github.com/Willian-Zhang/inverted-index/raw/master/miscellaneous/Structure.png)
 
 ### HPC
 Distributed version of this II building program is not completed, you will not be able to use it on Hadoop or Spark or Hive. However you could use HPC as ordinary server to run the program. 
