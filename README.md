@@ -187,7 +187,9 @@ So the testing are mostly about `lexicon extraction`.
 $ python extract_lex.py --binary data/wet/* > "data/delete-this.log"
 ```
 ~ 136 records/s
+
 ~ 5 mins/wet
+
 ### No Chinese mode 
 (Language detect on, Chinese off, binary)
 
@@ -195,6 +197,7 @@ $ python extract_lex.py --binary data/wet/* > "data/delete-this.log"
 $ python extract_lex.py --binary --skipChinese data/wet/* > "data/delete-this.log"
 ```
 ~ 166 records/s
+
 ~ 4 mins/wet
 
 ### Dumb mode 
@@ -204,6 +207,7 @@ $ python extract_lex.py --binary --skipChinese data/wet/* > "data/delete-this.lo
 $ python extract_lex.no_language.py --binary data/wet/* > "data/delete-this.log"
 ```
 ~ 513 records/s
+
 ~ 1.3 min/wet
 
 Speed is significantly faster however in this mode search result is going to be farily bad, beacuse all languages are jammed together. And for non-latin language it's even un-searchable.
@@ -213,7 +217,9 @@ Speed is significantly faster however in this mode search result is going to be 
 $ ./scripts/merge.sh 
 ```
 ~ $530k$ lines/s (for input)
+
 ~ $52k$ inverted lists/s (for output)
+
 ~ $13$ s/wet (including Chinese words)
 
 ## Size
