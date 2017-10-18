@@ -1,6 +1,6 @@
 #!/bin/bash
 mkdir -p "data/lex"
-source .env/bin/activate
+# source .env/bin/activate
 
 after="0"
 for file in data/wet/*.warc.wet.gz; do
