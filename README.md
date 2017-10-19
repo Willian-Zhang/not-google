@@ -8,7 +8,6 @@ Build Inverted Index upon wet file
   * [Installation](#installation)
     * [Recommand for running](#recommand-for-running)
       * [Virtual env](#virtual-env)
-* [For the first time:](#for-the-first-time:)
   * [Usage](#usage)
     * [Example usage](#example-usage)
       * [Download wet files](#download-wet-files)
@@ -28,12 +27,14 @@ Build Inverted Index upon wet file
   * [Size](#size)
   * [Memory](#memory)
 * [How it works](#how-it-works)
+  * [File Structure](#file-structure)
   * [Questions](#questions)
 * [Future Work](#future-work)
   * [Distributed](#distributed)
   * [Speed up](#speed-up)
   * [Query optimization](#query-optimization)
 * [Development](#development)
+
 
 # Features
 * Language detection
@@ -69,7 +70,7 @@ And then or for later use, activate it:
 
 ``` bash
 $ source .env/bin/activate
-# For the first time:
+ # For the first time:
 $ pip install -r requirements.txt
 ```
 
