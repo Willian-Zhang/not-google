@@ -252,6 +252,52 @@ Luckily mordern computers has a memory typically much greater than 1GiB. So as l
 # How it works
 ![Sturcture](miscellaneous/Structure.png)
 
+Figure of what `Extract Lexicon` and `Merge` do.
+
+## File Structure
+
+``` bash
+  ├── README.md  # This file source code
+  ├── README.pdf # This file
+  ├── data/
+  │   ├── inverted-index.ii # (generated) final Inverted List 
+  │   ├── lex/				# (generated) intermediate lexicons Files
+  │   │   ├── CC-MAIN-20170919112242-20170919132242-00000.lex
+  │   │   └── ...
+  │   ├── url-table-table.tsv # (generated) Index of URL Table
+  │   ├── url-table.tsv		  # (generated) URL Table
+  │   ├── wet/				  # (downloaded) WET Files
+  │   │   ├── CC-MAIN-20170919112242-20170919132242-00000.warc.wet.gz
+  │   │   └── ...
+  │   └── wet.paths			  # WET Files URLs
+  ├── decode-test.py		  # Test code for lexicon file verification
+  ├── extract_lex.no_language.py # Dumb mode version of `extract_lex.py`
+  ├── extract_lex.py		  # main file for `Lexicon Extraction`
+  ├── merge.py				  # main file for `Merge`
+  ├── miscellaneous/		  # miscellaneous files
+  │   ├── ...
+  │   ├── deprecated/
+  │   │   ├── extract.sh*
+  │   │   ├── hadoop-test.sh*
+  │   │   ├── map-reduce-test.sh*
+  │   │   └── setup-env.sh*
+  │   ├── dumbo-sample.sh*
+  │   └── testbeds/
+  │       └── ...
+  ├── modules/				  # Modules
+  │   └── NumberGenerator.py  # binary compatible docID generator 
+  ├── requirements.txt		  # requirement for python dependencies
+  └── scripts/
+      ├── deploy.sh*		  # helper script for deploy 
+      ├── dl.sh*			  # helper script for download
+      ├── extract-all.sh*	  # main script for `Lexicon Extraction`
+      ├── generate_toc.rb*	  # helper script for markdown ToC generation
+      └── merge.sh*			  # main script for `Merge`
+```
+
+
+
+
 ## Questions
 
 > Why so slow?
