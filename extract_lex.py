@@ -7,12 +7,6 @@ import slugid
 from collections import Counter
 from tqdm import tqdm
 
-# NLP
-from langid.langid import LanguageIdentifier, model
-Language = LanguageIdentifier.from_modelstring(model, norm_probs=True)
-
-
-
 # Options
 parser = argparse.ArgumentParser(description='Extract Lexicons from WETs')
 parser.add_argument('files', metavar='<filepath>', nargs='+',
@@ -36,11 +30,17 @@ parser.add_argument('-u','--uuid', action='store_true',
 parser.add_argument('-c','--compressuuid', action='store_true',
                     help='compress UUID in a compact form, only valid in UUID mode')
 
-
 args = parser.parse_args()
 
 if not args.skipChinese:
     import jieba
+
+
+# NLP
+from langid.langid import LanguageIdentifier, model
+Language = LanguageIdentifier.from_modelstring(model, norm_probs=True)
+
+
 
 # constants
 space_devided_langs = ['en','fr','de','it','la','es']
