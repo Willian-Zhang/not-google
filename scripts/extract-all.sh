@@ -8,7 +8,7 @@ for file in data/wet/*.warc.wet.gz; do
     python extract_lex.py --binary \
         --redis "/tmp/redis.sock" --redisDB 0 \
         --startID "$after" \
-        --docIDwet data/docIDwet.tsv \
+        --docIDwet "data/docIDwet.tsv" \
         "$file" \
         | LC_ALL=C  sort > "$lexFile"
     after=$(tail  -n 1 "data/docIDwet.tsv" | cut -f2)
