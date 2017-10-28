@@ -1,6 +1,6 @@
 import sys
 from tqdm import tqdm
-from modules.BlockWriter import BlockWriter
+from modules.IndexBlock import BlockWriter
 import redis
 
 import configparser
