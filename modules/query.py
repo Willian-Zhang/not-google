@@ -26,7 +26,7 @@ def read_index():
     return LexReader.index
 read_index()
 
-def get_doc(docID: int) -> str:
+def get_doc_deprecated(docID: int):
     # r.hmget(docID, ['off', 'url', 'lang', 'len'])
     # [b'297110936', b'https://...', b'en', b'1926']
     # {b'off': b'297110936', b'url': b'https://...', b'lang': b'en', b'len': b'1926'} 
@@ -45,9 +45,89 @@ def get_doc(docID: int) -> str:
             urlSlot[b'lang'].decode(),
             urlSlot[b'len'].decode(),
             title, doc)
-def BM25():
-    pass
+
+def get_snippets(content, keywords):
+    first_three = content.split(sep="\n", maxsplit=3)[:3]
+    return [one[:75] for one in first_three]
+
+def get_doc(docID: int, offset: int, url: str):
+    """
+    return (title, content)
+    """
+    doc_full_content = LexReader.get_full_doc(docID, offset, url)
+    splitted = doc_full_content.decode().split(sep="\n", maxsplit=1)
+    if len(splitted) == 2:
+        return splitted
+    else:
+        return (splitted[0], "")
+
+def get_doc_index(docID: int):
+    """
+    return (offset, url, language, doc_length)
+    """
+    # r.hmget(docID, ['off', 'url', 'lang', 'len'])
+    # [b'297110936', b'https://...', b'en', b'1926']
+    # {b'off': b'297110936', b'url': b'https://...', b'lang': b'en', b'len': b'1926'} 
+    urlSlot = r.hgetall(docID)
+    # // TODO: remove
     
+    return (int(urlSlot[b'off']),
+            urlSlot[b'url'].decode(),
+            urlSlot[b'lang'].decode(),
+            int(urlSlot[b'len'].decode()))
+
+N_doc = 49387975
+N_term = 4151693235
+Doc_AVG_Len = N_term/N_doc
+
+import math
+def IDF(term_len: int) -> float:
+    return math.log((N_doc - term_len + 0.5)/(term_len + 0.5))
+
+def K_BM25(doc_len: int) -> float:
+    #0.75 = b
+    #0.25 = 1-b
+    return 1.2 * (0.25 +  0.75 * doc_len / Doc_AVG_Len )
+
+def BM25(TF: int, K: float, IDF: float) -> float:
+    # 2.2 = k1+1
+    return IDF * (2.2 * TF) / (K * TF)
+    
+def conjunctive_query(terms):
+    results = [ (term, termIndexCollection.find_one({'term': term.encode()})) for term in terms]
+    for (_, term_table_result) in results:
+        if term_table_result is None:
+            return (0, [])
+    results = sorted(results, lambda r: r['count'])
+    blockreaders = [IndexBlock.BlockReader(fileObj=ii_file,
+                                   start_offset=result['off'], 
+                                   begin_ids=result['begins'], 
+                                   offsets_id=result['idOffs'], 
+                                   offsets_tf=result['tfOffs'])
+                    for result in results]
+    # blockreaders[0].read_first()
+    for blockreader in blockreaders: 
+        blockreader.read_first()
+
+    conjunctiveIDs = []
+    i = 0
+    did = True
+    while did:
+        i = 0
+        did = blockreaders[i].next_GEQ()
+        while i < len(blockreaders):
+            i += 1
+            if blockreaders[i].next_GEQ(did) != did:
+                # not match in the middle
+                break
+            elif i == (len(blockreaders) - 1):
+                # match for last one
+                
+                freqs = [blockreader.get_freq() for blockreader in blockreaders]
+                print("*match:", freqs)
+                conjunctiveIDs.append((did, freqs))
+    
+
 def get_term_single(term: str):
     result = termIndexCollection.find_one({'term': term.encode()})
     if result:
@@ -61,12 +141,24 @@ def get_term_single(term: str):
         result = [a for a in block_reader]
         total_results = len(result)
         
-        heapq.heapify(result)
+        result = [(docID, freq, get_doc_index(docID)) for (freq, docID) in  result]
 
-        return_docIDs = heapq.nlargest(10, result)
+        idf = IDF(total_results)
+        result = [(BM25(freq, K_BM25(doc_length), idf), docID, freq, offset, url, language) 
+                  for (docID, freq, (offset, url, language, doc_length)) in  result]
+
+        heapq.heapify(result)
         
-        docs = [get_doc(docID) for (freq, docID) in return_docIDs]
-        return (total_results, [(url, lang, title) for (docID, url, lang, len, title, doc) in docs])
+        return_items = heapq.nlargest(10, result)
+
+        return_items = [(
+            get_doc(docID, offset, url), 
+            (bm25, docID, freq, url, language)
+            ) for (bm25, docID, freq, offset, url, language) in return_items]
+
+        return (total_results, [(url, language, title, bm25, freq, get_snippets(content, [term])) 
+            for ((title, content),
+                (bm25, docID, freq, url, language)) in return_items])
     else:
         return (0, [])
 
@@ -83,8 +175,11 @@ def query(term: str):
         "results": [{
             "url": url,
             "lang": lang,
-            "title": title
-        } for (url, lang, title) in search_result]
+            "title": title,
+            "bm25": bm25,
+            "count": freq,
+            "snippets": snippets
+        } for (url, lang, title, bm25, freq, snippets) in search_result]
     }
 
 import importlib

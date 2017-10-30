@@ -33,7 +33,16 @@ $(document).ready(()=>{
                 } catch (error) {
                     element.find('.slot-url').text(slotItem.url);
                 }
-                element.find('.slot-infos').text(`Language: ${slotItem.lang}, BM2.5: ${0}`);
+                element.find('.slot-infos').text(`Language: ${slotItem.lang}, BM2.5: ${slotItem.bm25.toPrecision(3)}, Total: ${slotItem.count}`);
+                snippetElement = element.find('.slot-snippet')
+                snippetElement.empty()
+                snippetLengthMinusOne = slotItem.snippets.length - 1;
+                slotItem.snippets.map((snippet, i) =>{
+                    snippetElement.append(document.createTextNode(snippet));
+                    if(i < snippetLengthMinusOne){
+                        snippetElement.append("<br />")
+                    }
+                });
                 return element;
             });
             searchResultElement.append(elements)
