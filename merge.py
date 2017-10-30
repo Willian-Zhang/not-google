@@ -1,7 +1,7 @@
 import sys
 from tqdm import tqdm
 from modules.IndexBlock import BlockWriter
-import redis
+import pymongo
 
 import configparser
 
@@ -11,9 +11,27 @@ Config.read('config.ini')
 
 file = open(Config['InvertedIndex']['IIFile'], mode='wb')
 
-r = redis.Redis(unix_socket_path = Config['InvertedIndex']['RedisSock'], 
-                db               = Config['InvertedIndex']['TermDB'])
+client = pymongo.MongoClient(Config['InvertedIndex']['MongoSock'])
+termDB = client[Config['InvertedIndex']['TermDB']]
+termIndexCollection = termDB.terms
 
+class DBAgent:
+    bufferedCount = 0
+    buffered = []
+
+    def write(self):
+        buffered = self.buffered
+        termIndexCollection.bulk_write([pymongo.InsertOne(d) for d in buffered])
+        self.buffered = []
+        self.bufferedCount = 0
+
+    def insert(self, doc):
+        self.bufferedCount += 1
+        self.buffered.append(doc)
+        if self.bufferedCount > 400:
+            self.write()
+
+dbAgent = DBAgent()
 
 class TermAgent:
     words = 0
@@ -32,15 +50,20 @@ class TermAgent:
     def finish_word(self,word):
         self.terms += self.current_block_writer.count
         self.current_block_writer.finish()
-        r.hmset(word, {
+        dbAgent.insert({
+            'term'  : word,
             'count' : self.current_block_writer.count,
             'off'   : self.current_block_writer.start_offset,
             'begins': self.current_block_writer.begin_ids,
             'idOffs': self.current_block_writer.offsets_id,
             'tfOffs': self.current_block_writer.offsets_tf
         })
+        
 
 if __name__ == "__main__":
+
+    termIndexCollection.create_index([("term", pymongo.HASHED)])
+
     current_word = None
     agent = TermAgent()
     if Config['InvertedIndex']['ExpectTerms']:
@@ -62,10 +85,15 @@ if __name__ == "__main__":
             agent.meet_document(contents[:-1])
             
     agent.finish_word(current_word)
+    if dbAgent.bufferedCount>0:
+        dbAgent.write()
+
     with open(Config['InvertedIndex']['StatisticsFile'], mode='w') as statistics_file:
         statistics_file.write("{terms}\t{words}".format(terms=agent.terms, words=agent.words))
     print('terms:', agent.terms, file=sys.stderr)
     print('words:', agent.words, file=sys.stderr)
     print('|d|avg:', agent.terms/agent.words, file=sys.stderr)
 
+    print('* Creating Index...', file=sys.stderr)
+    
 file.close()
