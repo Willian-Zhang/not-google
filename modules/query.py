@@ -69,7 +69,6 @@ def get_doc_index(docID: int):
     # [b'297110936', b'https://...', b'en', b'1926']
     # {b'off': b'297110936', b'url': b'https://...', b'lang': b'en', b'len': b'1926'} 
     urlSlot = r.hgetall(docID)
-    # // TODO: remove
     
     return (int(urlSlot[b'off']),
             urlSlot[b'url'].decode(),
@@ -162,7 +161,8 @@ def get_term_single(term: str):
     else:
         return (0, [])
 
-import time
+
+
 def query(term: str):
     start = time.process_time()
     (total_results, search_result) = get_term_single(term)
@@ -170,7 +170,8 @@ def query(term: str):
     return {
         "meta":{
             "results": total_results,
-            "time"   : end - start
+            "time"   : end - start,
+            "query"  : term
         },
         "results": [{
             "url": url,

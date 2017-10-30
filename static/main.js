@@ -48,7 +48,7 @@ $(document).ready(()=>{
             searchResultElement.append(elements)
         }else{
             searchResultElement.append($(`<div class="no-result"></div>`)
-                .text(`Your search - ${""} - did not match any documents.`));
+                .text(`Your search - ${result.meta.query} - did not match any documents.`));
         }
              
     });
