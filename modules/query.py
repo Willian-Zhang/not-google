@@ -21,6 +21,7 @@ termIndexCollection : pymongo.collection.Collection = termDB.terms
 
 def read_index():
     index_of_wet_path = Config['Query']['DocIDWet']
+    print(index_of_wet_path)
     LexReader.open_index(index_of_wet_path)
     return LexReader.index
 read_index()
@@ -44,10 +45,11 @@ def get_doc(docID: int) -> str:
             urlSlot[b'lang'].decode(),
             urlSlot[b'len'].decode(),
             title, doc)
-
+def BM25():
+    pass
+    
 def get_term_single(term: str):
     result = termIndexCollection.find_one({'term': term.encode()})
-    print(result)
     if result:
         block_reader = IndexBlock.BlockReader(fileObj=ii_file,
                                    start_offset=result['off'], 
@@ -57,17 +59,38 @@ def get_term_single(term: str):
         block_reader.read_first()
 
         result = [a for a in block_reader]
-        print(len(result))
+        total_results = len(result)
         
         heapq.heapify(result)
 
-        return_docIDs = heapq.nlargest(20, result)
+        return_docIDs = heapq.nlargest(10, result)
         
         docs = [get_doc(docID) for (freq, docID) in return_docIDs]
-        print(len(docs))
-        return [(url, lang, title) for (docID, url, lang, len, title, doc) in docs]
+        return (total_results, [(url, lang, title) for (docID, url, lang, len, title, doc) in docs])
     else:
-        return None
+        return (0, [])
+
+import time
+def query(term: str):
+    start = time.process_time()
+    (total_results, search_result) = get_term_single(term)
+    end = time.process_time()
+    return {
+        "meta":{
+            "results": total_results,
+            "time"   : end - start
+        },
+        "results": [{
+            "url": url,
+            "lang": lang,
+            "title": title
+        } for (url, lang, title) in search_result]
+    }
+
+import importlib
+def reload():
+    importlib.reload(IndexBlock)
+    importlib.reload(LexReader)
 
 def close():
     ii_file.close()

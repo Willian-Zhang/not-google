@@ -18,6 +18,9 @@ def open_index(name, compressed = False):
     min = index[0][0]
     max = index[-1][1]
     wet_average_length = (max - min) / len(index)
+
+    if len(index) == 0:
+        raise FileExistsError(name)
     
 
 

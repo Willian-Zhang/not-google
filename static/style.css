@@ -1,0 +1,64 @@
+div#result{
+    margin-left: 100px;
+}
+    div#result #info{
+        margin-top: 5px;
+        font-size: 14px;
+        color: grey;
+    }
+
+#slots{
+    margin-top: 0px;
+}
+
+    .slot{
+        margin-top: 30px;
+    }
+    .slot-title{
+        font-size: 18px;
+        margin-bottom: 0px;
+    }
+    .slot-url{
+        font-size: 14px;
+        color: green;
+    }
+    .slot-snippet{
+        font-size: 14px;
+    }
+    .slot-infos{
+        font-size: 14px;
+        color: rgb(128, 128, 128);
+    }
+    .no-result{
+        margin-top: 100px;
+    }
+
+.next{
+    height: 20px;
+    padding-bottom: 50px;
+}
+
+html, body {
+    height: 100%;
+    margin: 0;
+}
+.wrapper {
+    min-height: 100%;
+    
+    margin-bottom: -50px;
+}
+
+.footer,
+.push{
+    height: 50px;
+}
+
+.footer{
+    /* position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    padding: 1rem; */
+    background-color: #efefef;
+}
+
