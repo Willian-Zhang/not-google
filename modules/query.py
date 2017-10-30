@@ -2,6 +2,7 @@ from modules import IndexBlock
 from modules import LexReader
 import pymongo
 
+import numpy as np
 
 import configparser
 Config = configparser.ConfigParser()
@@ -26,6 +27,14 @@ def read_index():
     return LexReader.index
 read_index()
 
+
+import time
+last_time = 0
+def time_eslapsed(note):
+    global last_time
+    print(note, f"{(time.process_time()-last_time):.5f}")
+    last_time = time.process_time()
+    
 def get_doc_deprecated(docID: int):
     # r.hmget(docID, ['off', 'url', 'lang', 'len'])
     # [b'297110936', b'https://...', b'en', b'1926']
@@ -74,6 +83,26 @@ def get_doc_index(docID: int):
             urlSlot[b'url'].decode(),
             urlSlot[b'lang'].decode(),
             int(urlSlot[b'len'].decode()))
+import threading
+
+def get_doc_index_mutiple(docIDs: [int]):
+    """
+    return (offset, url, language, doc_length)
+    """
+    # r.hmget(docID, ['off', 'url', 'lang', 'len'])
+    # [b'297110936', b'https://...', b'en', b'1926']
+    # {b'off': b'297110936', b'url': b'https://...', b'lang': b'en', b'len': b'1926'} 
+
+    # docID100s = slice(docIDs, 100)
+
+    p = r.pipeline(transaction=False)
+    
+    [p.hgetall(docID) for docID in docIDs]
+    for urlSlot in p.execute():
+        yield (int(urlSlot[b'off']),
+                urlSlot[b'url'].decode(),
+                urlSlot[b'lang'].decode(),
+                int(urlSlot[b'len'].decode()))
 
 N_doc = 49387975
 N_term = 4151693235
@@ -127,34 +156,52 @@ def conjunctive_query(terms):
                 conjunctiveIDs.append((did, freqs))
     
 
+
 def get_term_single(term: str):
     result = termIndexCollection.find_one({'term': term.encode()})
     if result:
+        time_eslapsed("0 done")
+
+        
         block_reader = IndexBlock.BlockReader(fileObj=ii_file,
                                    start_offset=result['off'], 
                                    begin_ids=result['begins'], 
                                    offsets_id=result['idOffs'], 
                                    offsets_tf=result['tfOffs'])
         block_reader.read_first()
-
+        time_eslapsed("1 done")
+        
+        
         result = [a for a in block_reader]
         total_results = len(result)
-        
-        result = [(docID, freq, get_doc_index(docID)) for (freq, docID) in  result]
+        time_eslapsed("2 done")
+
+        doc_abstracts = [*get_doc_index_mutiple([docID for (freq, docID) in  result])]
+        time_eslapsed("3 done")
 
         idf = IDF(total_results)
-        result = [(BM25(freq, K_BM25(doc_length), idf), docID, freq, offset, url, language) 
-                  for (docID, freq, (offset, url, language, doc_length)) in  result]
+        time_eslapsed("4.1 done")
+        doc_lengths   = np.array([doc_length for (offset, url, language, doc_length) in doc_abstracts])
+        time_eslapsed("4.2 done")
+        freqs         = np.array([freq for (freq, docID) in  result])
+        time_eslapsed("4.3 done")
+        bm25s         = BM25(freqs, K_BM25(doc_lengths), idf)
+        time_eslapsed("4.4 done")
+        result = [(bm25, docID, freq, offset, url, language) 
+                  for (bm25, (freq, docID), (offset, url, language, doc_length)) in  zip(bm25s, result, doc_abstracts)]
+        time_eslapsed("4.5 done")
 
         heapq.heapify(result)
-        
+        time_eslapsed("5 done")
         return_items = heapq.nlargest(10, result)
+        time_eslapsed("6 done")
 
         return_items = [(
             get_doc(docID, offset, url), 
             (bm25, docID, freq, url, language)
             ) for (bm25, docID, freq, offset, url, language) in return_items]
 
+        time_eslapsed("7 done")
         return (total_results, [(url, language, title, bm25, freq, get_snippets(content, [term])) 
             for ((title, content),
                 (bm25, docID, freq, url, language)) in return_items])
