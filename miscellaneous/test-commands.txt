@@ -1,0 +1,5 @@
+python extract_lex.py \
+ --binary --redis "/tmp/redis.sock" --redisDB 2 \
+ --docIDwet data/docIDwet.tsv \
+ data/wet/CC-MAIN-20170919112242-20170919132242-00000.warc.wet.gz \
+ | LC_ALL=C  sort > data/delete.log

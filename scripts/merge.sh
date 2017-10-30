@@ -1,2 +1,2 @@
 #!/bin/bash
-LC_ALL=C sort -m data/lex/*.lex | python merge.py > "data/inverted-index.ii"
+LC_ALL=C sort --batch-size=300 --mergesort -m data/lex/*.lex | python merge.py 
