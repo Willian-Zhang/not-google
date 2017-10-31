@@ -1,6 +1,6 @@
 import sys
 from tqdm import tqdm
-from modules.IndexBlock_scored import BlockWriter
+from modules.IndexBlock import BlockWriter
 import pymongo
 
 import configparser
