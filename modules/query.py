@@ -2,7 +2,7 @@ from modules import IndexBlock
 from modules import LexReader
 import pymongo
 
-import time
+import time, functools
 
 import configparser
 Config = configparser.ConfigParser()
@@ -75,22 +75,25 @@ def get_doc_index(docID: int):
             urlSlot[b'lang'].decode(),
             int(urlSlot[b'len'].decode()))
 
-N_doc = 8521860
-N_term = 4151693235
-Doc_AVG_Len = N_term/N_doc
-
 import math
+BM_N_doc = 8521860
+BM_N_term = 4151693235
+BM_Doc_AVG_Len = BM_N_term/BM_N_doc
+BM_K1 = 1.2
+BM_K1_P1 = BM_K1 + 1
+BM_b  = 0.75
+BM_K2 = BM_K1 * (1 - BM_b)
+BM_K3 = BM_K1 * BM_b / BM_Doc_AVG_Len
 def IDF(term_len: int) -> float:
-    return math.log((N_doc - term_len + 0.5)/(term_len + 0.5))
+    return math.log((BM_N_doc - term_len + 0.5)/(term_len + 0.5))
 
 def K_BM25(doc_len: int) -> float:
-    #0.75 = b
-    #0.25 = 1-b
-    return 1.2 * (0.25 +  0.75 * doc_len / Doc_AVG_Len )
+    # K = K2 + |d| * K3
+    return BM_K2 + doc_len * BM_K3
 
 def BM25(TF: int, K: float, IDF: float) -> float:
-    # 2.2 = k1+1
-    return IDF * (2.2 * TF) / (K * TF)
+    # IDF * (K1 + 1) * TF / ( K + TF )
+    return IDF * BM_K1_P1 * TF / (K * TF)
     
 def conjunctive_query(terms):
     results = [ (term, termIndexCollection.find_one({'term': term.encode()})) for term in terms]
@@ -165,11 +168,14 @@ def get_term_single(term: str):
     else:
         return (0, [])
 
-
+@functools.lru_cache(maxsize=512)
+def query_exec(term: str):
+    (total_results, search_result) = get_term_single(term)
+    return (total_results, search_result)
 
 def query(term: str):
     start = time.process_time()
-    (total_results, search_result) = get_term_single(term)
+    (total_results, search_result) = query_exec(term)
     end = time.process_time()
     return {
         "meta":{
@@ -191,6 +197,13 @@ import importlib
 def reload():
     importlib.reload(IndexBlock)
     importlib.reload(LexReader)
+
+def cache_info():
+    return [("Query: ", str(query_exec.cache_info()))]
+
+def cache_clear():
+    query_exec.cache_clear()
+    pass
 
 def close():
     ii_file.close()

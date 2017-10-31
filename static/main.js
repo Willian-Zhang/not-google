@@ -7,10 +7,32 @@ $(document).ready(()=>{
 
     let metaInfoElement = $('#info spam');
     let searchResultElement = $('#slots');
+    let search = function(keyword){
+        document.title = `${keyword} - Not Google`;
+        window.history.pushState(keyword, document.title, `/?s=${encodeURI(keyword)}`);
+        socket.emit('search', keyword);
+        metaInfoElement.text('Searching...');
+        searchResultElement.empty();
+    };
+
+    let load_page = function(){
+        let locationSearch = JSON.parse('{"' + decodeURI(location.search.substring(1)).replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g,'":"') + '"}');
+        if(locationSearch.s){
+            search(locationSearch.s);
+            $('#search-form input').val(locationSearch.s);
+        }
+    };
+    load_page();
+    window.onpopstate = function(e){
+        if(e.state){
+            load_page();
+        }
+    };
 
     $('#search-form').submit(function(){
-        socket.emit('search', $(this).find('input').val().trim());
-        searchResultElement.empty();
+        let input = $(this).find('input');
+        search($(this).find('input').val().trim());
+        input.blur()
         return false;
     });
     
@@ -49,7 +71,7 @@ $(document).ready(()=>{
             });
             searchResultElement.append(elements)
         }else{
-            searchResultElement.append($(`<div class="no-result"></div>`)
+            searchResultElement.append($(`<div class="big-info"></div>`)
                 .text(`Your search - ${result.meta.query} - did not match any documents.`));
         }
              
@@ -57,5 +79,16 @@ $(document).ready(()=>{
     
     socket.on('reloaded', function(msg){
         metaInfoElement.text('Reloaded');
+    });
+
+    socket.on('simple info', function(msg){
+        metaInfoElement.text(msg);
+    });
+
+    socket.on('multiple info', function(msgs){
+        metaInfoElement.text('Done');
+        msgs.map(info => {
+            searchResultElement.append($(`<div class="big-info"></div>`).text(info));
+        });
     });
 });

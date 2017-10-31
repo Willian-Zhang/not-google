@@ -1,27 +1,48 @@
 <html>
     <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=1.0, minimum-scale=1.0, maximum-scale=1.0">
+
         <link rel="stylesheet" type="text/css" href="static/lib/bootstrap.min.css">
         <link rel="stylesheet" type="text/css" href="static/style.css">
+
         <script src="static/lib/socket.io.slim.js"></script>
         <script src="static/lib/jquery-3.2.1.min.js"></script>
         <script src="static/lib/popper.min.js"></script>
         <script src="static/lib/bootstrap.min.js"></script>
         <script src="static/main.js"></script>
+
         <title>Not Google</title>
     </head>
     <body>
         <div class="wrapper">
             <div id="search">
-                <nav class="navbar navbar-expand-lg navbar-dark  bg-primary">
-                    <a class="navbar-brand" href="#">Not Google</a>
-                    <form id="search-form" class="form-inline my-0 mr-auto active">
+                <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                    <a class="navbar-brand mb-0 h1" href="#">Not Google</a>
+                    <div class="col-lg-6">
+                        <form id="search-form" class="input-group form-inline my-0">
+                            <input type="search" class="form-control" placeholder="Search for..." aria-label="Search for...">
+                                <span class="input-group-btn">
+                                <button class="btn btn-primary" type="submit">Go!</button>
+                                </span>
+                            </div>
+                        </form>
+                    <!-- <form id="search-form" class="form-inline my-0 mr-auto active">
                         <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search">
                         <button class="btn btn-light my-2 my-sm-0" type="submit">Search</button>
-                    </form>
+                    </form> -->
                     <!-- <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                         <span class="navbar-toggler-icon"></span>
                     </button> -->
+                    
                 </nav>
+                <ul class="nav nav-tabs bg-light justify-content-center">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="#">Pages</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link disabled" href="#">Nothing else</a>
+                    </li>
+                </ul>
             </div>
             
             <div id="result">
@@ -34,16 +55,16 @@
                         <div class="slot-url">http://</div>
                         <div class="slot-snippet">Content</div>
                         <div class="slot-infos">BM2.5: </div>
+                    </div>-->
+                </div>
+                <div class="next">
+                    <div class="btn-toolbar" role="toolbar" aria-label="Toolbar with button groups">
+                        <div class="btn-group mr-2" role="group" aria-label="First group">
+                            <button type="button" class="btn btn-secondary">1</button>
+                        </div>
                     </div>
-                    <div class="slot">
-                            <h3 class="slot-title"><a href="...">Title</a></h3>
-                            <div class="slot-url">http://</div>
-                            <div class="slot-snippet">Content</div>
-                            <div class="slot-infos">BM2.5: </div>
-                        </div> -->
                 </div>
             </div>
-            <div class="next"></div>
             <div class="push"></div>
         </div>
         <footer class="footer">

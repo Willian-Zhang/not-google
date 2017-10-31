@@ -20,14 +20,20 @@ async def index(request):
 async def search(sid, data: str):
     if data.startswith(':'):
         # commnad
+        print(str(data))
         if data == ":reload":
-            print("*reload..")
             query.reload()
             importlib.reload(query)
-            print("* reloaded")
-            await sio.emit('reloaded', room=sid, namespace='/search')
+            print("..reloaded")
+            await sio.emit('simple info', data='Reloaded', room=sid, namespace='/search')
+        elif data == ":cache":
+            infos = query.cache_info()
+            await sio.emit('multiple info', data=infos, room=sid, namespace='/search')
+        elif data == ":cache-clear":
+            query.cache_clear()
+            await sio.emit('simple info', data='Cache Cleared', room=sid, namespace='/search')
     else:
-        print("*search:", data)
+        print("*search:", str(data))
         results = query.query(data)
         await sio.emit('search result', data=results, room=sid, namespace='/search')
 
@@ -35,8 +41,9 @@ async def search(sid, data: str):
 # def disconnect(sid):
 #     print('disconnect ', sid)
 
-app.router.add_static('/static', 'static')
+app.router.add_static('/static', 'static', append_version=True)
 app.router.add_get('/', index)
+app.router.add_get('/{any}', index)
 
 if __name__ == '__main__':
     web.run_app(app)
