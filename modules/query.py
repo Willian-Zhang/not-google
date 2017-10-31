@@ -22,7 +22,6 @@ termIndexCollection : pymongo.collection.Collection = termDB.terms
 
 def read_index():
     index_of_wet_path = Config['Query']['DocIDWet']
-    print(index_of_wet_path)
     LexReader.open_index(index_of_wet_path)
     return LexReader.index
 read_index()

@@ -1,4 +1,4 @@
-from . import vbcode
+import vbcode
 
 class BlockWriter:
     _dump_size = 2048

@@ -4,12 +4,15 @@ Number.prototype.numberWithCommas = function(){
 
 $(document).ready(()=>{
     const socket = io('/search');
-    $('#search-form').submit(function(){
-        socket.emit('search', $(this).find('input').val().trim());
-        return false;
-    });
+
     let metaInfoElement = $('#info spam');
     let searchResultElement = $('#slots');
+
+    $('#search-form').submit(function(){
+        socket.emit('search', $(this).find('input').val().trim());
+        searchResultElement.empty();
+        return false;
+    });
     
     var slotTemplate = $(`
     <div class="slot">
@@ -17,12 +20,11 @@ $(document).ready(()=>{
         <div class="slot-url">http://</div>
         <div class="slot-snippet">Content</div>
         <div class="slot-infos">BM2.5: </div>
-    </div>`)
+    </div>`);
 
     socket.on('search result', function(result){
         console.log(result);
         metaInfoElement.text(`${result.meta.results.numberWithCommas()} results. (${result.meta.time.toPrecision(3)} seconds)`);
-        searchResultElement.empty();
         if(result.meta.results > 0){
             elements = result.results.map(slotItem => {
                 let element = slotTemplate.clone()
@@ -56,4 +58,4 @@ $(document).ready(()=>{
     socket.on('reloaded', function(msg){
         metaInfoElement.text('Reloaded');
     });
-})
+});
