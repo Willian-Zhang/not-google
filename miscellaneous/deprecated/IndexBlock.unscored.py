@@ -12,12 +12,10 @@ class BlockWriter:
         self.begin_ids = []
         self.offsets_id = []
         self.offsets_tf = []
-        self.offsets_score = []
-
+        
         self.last_id = 0
         self.ids = []
         self.tfs = []
-        self.scores= []
     
     def write(self, bytess):
         self.fileObj.write(bytess)
@@ -39,19 +37,13 @@ class BlockWriter:
             start_length_pair = self.write(encoded)
             self.offsets_tf.append(start_length_pair)
 
-            encoded = vbcode.encode(self.scores)
-            start_length_pair = self.write(encoded)
-            self.offsets_score.append(start_length_pair)
-
         self.last_id = 0
         self.ids = []
         self.tfs = []
-        self.scores = []
 
-    def add(self, docID, freq, score):
+    def add(self, docID, freq):
         self.ids.append(docID-self.last_id)
         self.tfs.append(freq)
-        self.scores.append(score)
         self.last_id = docID
         self.count += 1
         if len(self.ids) >= self._dump_size:
@@ -61,7 +53,7 @@ class BlockWriter:
         self._save()
 
 class BlockReader:
-    def __init__(self, fileObj, start_offset, begin_ids, offsets_id, offsets_tf, offsets_score):
+    def __init__(self, fileObj, start_offset, begin_ids, offsets_id, offsets_tf):
         self.fileObj = fileObj
         self.start_offset = start_offset
         # self.count  = count
@@ -69,7 +61,6 @@ class BlockReader:
         self.begin_ids = begin_ids
         self.offsets_id = offsets_id
         self.offsets_tf = offsets_tf
-        self.offsets_score = offsets_score
 
         self.current_block_indice = 0
 
@@ -77,8 +68,7 @@ class BlockReader:
         self.ids = []
         self.current_in_block_indice = -1
         self.tfs = []
-        self.scores = []
-        self.current_payload_block_indice = None
+        self.current_tf_block_indice = None
     
     def read_first(self):
         self._read_current_block_ids()
@@ -137,31 +127,25 @@ class BlockReader:
                     return self.current_id 
             return None
 
-    def get_payload(self):
+    def get_freq(self):
         """
         get TF of last read docID
         """
-        if self.current_payload_block_indice != self.current_block_indice:
+        if self.current_tf_block_indice != self.current_block_indice:
             # If not read
-            self.current_payload_block_indice = self.current_block_indice
-            # TF
-            offset, length = self.offsets_tf[self.current_payload_block_indice]
+            self.current_tf_block_indice = self.current_block_indice
+            offset, length = self.offsets_tf[self.current_tf_block_indice]
             self.fileObj.seek(offset)
             bytess = self.fileObj.read(length)
             self.tfs = vbcode.decode(bytess)
-            # score
-            offset, length = self.offsets_score[self.current_payload_block_indice]
-            self.fileObj.seek(offset)
-            bytess = self.fileObj.read(length)
-            self.scores = vbcode.decode(bytess)
         # self.tfs read
-        return (self.scores[self.current_in_block_indice], self.tfs[self.current_in_block_indice])
+        return self.tfs[self.current_in_block_indice]
 
     def __iter__(self):
         while True:
             docID = self.next_GEQ()
             if docID:
-                (score, freq) = self.get_payload()
-                yield (score, freq, docID)
+                freq = self.get_freq()
+                yield (freq, docID)
             else:
                 break

@@ -1,10 +1,9 @@
 import sys
 from tqdm import tqdm
-from modules.IndexBlock_scored import BlockWriter
+from modules.IndexBlock import BlockWriter
 import pymongo
 
 import configparser
-from functools import lru_cache
 
 Config = configparser.ConfigParser()
 Config.read('config.ini')
@@ -15,17 +14,6 @@ file = open(Config['InvertedIndex']['IIFile'], mode='wb')
 client = pymongo.MongoClient(Config['InvertedIndex']['MongoSock'])
 termDB = client[Config['InvertedIndex']['TermDB']]
 termIndexCollection = termDB.terms
-
-BM_N_doc = 8521860
-BM_N_term = 4151693235
-BM_Doc_AVG_Len = BM_N_term/BM_N_doc
-BM_K1 = 1.2
-BM_b  = 0.75
-BM_K2 = BM_K1 * (1 - BM_b)
-BM_K3 = BM_K1 * BM_b / BM_Doc_AVG_Len
-def partial_BM25(TF: int, doc_length: int) -> int:
-    return int(TF/(TF + BM_K2 + BM_K3 * doc_length) * 16384)
-
 
 class DBAgent:
     bufferedCount = 0
@@ -45,13 +33,6 @@ class DBAgent:
 
 dbAgent = DBAgent()
 
-import redis
-r = redis.Redis(unix_socket_path=Config['Query']['RedisPath'], db=int(Config['Query']['RedisDB']))
-
-@lru_cache(maxsize=8521860)
-def doc_length(docID: int) -> int:
-    return int(r.hmget(docID, 'len')[0])
-
 class TermAgent:
     words = 0
     terms = 0
@@ -64,10 +45,7 @@ class TermAgent:
 
     def meet_document(self, content):
         docID, freq = content.split(b' ', 1)
-        docID = int.from_bytes(docID, 'big', signed=True)
-        freq = int(freq)
-        bm25 = partial_BM25(freq, doc_length(docID))
-        self.current_block_writer.add(docID, freq, score=bm25)
+        self.current_block_writer.add(int.from_bytes(docID, 'big', signed=True), int(freq))
 
     def finish_word(self,word):
         self.terms += self.current_block_writer.count
@@ -78,16 +56,14 @@ class TermAgent:
             'off'   : self.current_block_writer.start_offset,
             'begins': self.current_block_writer.begin_ids,
             'idOffs': self.current_block_writer.offsets_id,
-            'tfOffs': self.current_block_writer.offsets_tf,
-            'bmOffs': self.current_block_writer.offsets_score
+            'tfOffs': self.current_block_writer.offsets_tf
         })
-
-import atexit   
-def exit_handler():
-    print(doc_length.cache_info())
-atexit.register(exit_handler)
+        
 
 if __name__ == "__main__":
+
+    termIndexCollection.create_index([("term", pymongo.HASHED)])
+
     current_word = None
     agent = TermAgent()
     if Config['InvertedIndex']['ExpectTerms']:
@@ -116,11 +92,8 @@ if __name__ == "__main__":
         statistics_file.write("{terms}\t{words}".format(terms=agent.terms, words=agent.words))
     print('terms:', agent.terms, file=sys.stderr)
     print('words:', agent.words, file=sys.stderr)
-
-   
+    print('|d|avg:', agent.terms/agent.words, file=sys.stderr)
 
     print('* Creating Index...', file=sys.stderr)
-
-    termIndexCollection.create_index([("term", pymongo.HASHED)])
     
 file.close()

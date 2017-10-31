@@ -2,6 +2,7 @@ from modules import IndexBlock
 from modules import LexReader
 import pymongo
 
+import time
 
 import configparser
 Config = configparser.ConfigParser()
@@ -75,7 +76,7 @@ def get_doc_index(docID: int):
             urlSlot[b'lang'].decode(),
             int(urlSlot[b'len'].decode()))
 
-N_doc = 49387975
+N_doc = 8521860
 N_term = 4151693235
 Doc_AVG_Len = N_term/N_doc
 
@@ -102,7 +103,8 @@ def conjunctive_query(terms):
                                    start_offset=result['off'], 
                                    begin_ids=result['begins'], 
                                    offsets_id=result['idOffs'], 
-                                   offsets_tf=result['tfOffs'])
+                                   offsets_tf=result['tfOffs'],
+                                   offsets_score=result['bmOffs'])
                     for result in results]
     # blockreaders[0].read_first()
     for blockreader in blockreaders: 
@@ -134,20 +136,23 @@ def get_term_single(term: str):
                                    start_offset=result['off'], 
                                    begin_ids=result['begins'], 
                                    offsets_id=result['idOffs'], 
-                                   offsets_tf=result['tfOffs'])
+                                   offsets_tf=result['tfOffs'],
+                                   offsets_score=result['bmOffs'])
         block_reader.read_first()
 
         result = [a for a in block_reader]
         total_results = len(result)
         
-        result = [(docID, freq, get_doc_index(docID)) for (freq, docID) in  result]
+        heapq.heapify(result)
+        result = heapq.nlargest(20, result)
+
+        result = [(docID, freq, get_doc_index(docID)) for (score, freq, docID) in  result]
 
         idf = IDF(total_results)
         result = [(BM25(freq, K_BM25(doc_length), idf), docID, freq, offset, url, language) 
                   for (docID, freq, (offset, url, language, doc_length)) in  result]
 
         heapq.heapify(result)
-        
         return_items = heapq.nlargest(10, result)
 
         return_items = [(

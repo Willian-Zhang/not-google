@@ -22,7 +22,6 @@ async def search(sid, data: str):
         # commnad
         if data == ":reload":
             print("*reload..")
-            importlib.reload(query)
             query.reload()
             importlib.reload(query)
             print("* reloaded")
