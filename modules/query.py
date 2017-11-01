@@ -243,7 +243,7 @@ def query(term: str):
 
 import importlib
 def reload():
-    importlib.reload(IndexBlock)
+    importlib.reload(BlockReader)
     importlib.reload(LexReader)
 
 def cache_info():
