@@ -30,3 +30,7 @@ class FixSizeCountedMaxHeap(FixSizeMaxHeap):
         self.length_original -= 1
         return super().pop()
         
+class FixSizeMaxHeapSet(FixSizeMaxHeap):
+    def push(self, item):
+        if item not in self.data:
+            return super().push(item)

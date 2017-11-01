@@ -42,9 +42,9 @@ $(document).ready(()=>{
     
     var slotTemplate = $(`
     <div class="slot">
-        <h3 class="slot-title"><a href="...">Title</a></h3>
-        <div class="slot-url">http://</div>
-        <div class="slot-snippet">Content</div>
+        <h3 class="slot-title shrink-line"><a href="...">Title</a></h3>
+        <div class="slot-url shrink-line">http://</div>
+        <div class="slot-snippet ">Content</div>
         <div class="slot-infos">BM2.5: </div>
     </div>`);
 
@@ -64,13 +64,17 @@ $(document).ready(()=>{
                 element.find('.slot-infos').text(`Language: ${slotItem.lang}, BM2.5: ${slotItem.bm25.toPrecision(3)}, Total: ${slotItem.count}`);
                 snippetElement = element.find('.slot-snippet')
                 snippetElement.empty()
+                
                 snippetLengthMinusOne = slotItem.snippets.length - 1;
                 slotItem.snippets.map((snippet, i) =>{
                     snippetElement.append(document.createTextNode(snippet));
                     if(i < snippetLengthMinusOne){
-                        snippetElement.append("<br />")
+                        snippetElement.append("<br />");
                     }
                 });
+                if (slotItem.snippets.length > 1){
+                    snippetElement.addClass("shrink-line");
+                }
                 return element;
             });
             searchResultElement.append(elements)

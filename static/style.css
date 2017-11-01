@@ -19,7 +19,11 @@ div#result{
 #slots{
     margin-top: 0px;
 }
-
+    .shrink-line{
+        white-space: nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
+    }
     .slot{
         margin-top: 30px;
     }
@@ -31,9 +35,6 @@ div#result{
         font-size: 14px;
         color: green;
 
-        white-space: nowrap;
-        overflow:hidden;
-        text-overflow:ellipsis;
     }
     .slot-snippet{
         font-size: 14px;

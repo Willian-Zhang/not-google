@@ -1,4 +1,4 @@
-from modules import LexReader, Heap, BlockReader
+from modules import LexReader, Heap, BlockReader, Snippet
 
 import pymongo
 
@@ -32,11 +32,6 @@ def read_index():
     LexReader.open_index(index_of_wet_path)
     return LexReader.index
 read_index()
-
-
-def get_snippets(content, keywords):
-    first_three = content.split(sep="\n", maxsplit=3)[:3]
-    return [one[:75] for one in first_three]
 
 def get_doc(docID: int, offset: int, url: str):
     """
@@ -123,6 +118,10 @@ def calculate_doc_summery(IDFs: [int], scoreTFs: [], docID: int):
             (offset, url, language, doc_length)
             )
 
+def BM25_estimate(IDFs: [int], scoreTFs: [int]):
+    return sum([idf*score for (idf, (score, tf)) in zip(IDFs, scoreTFs)])
+
+
 def conjunctive_query(terms: [str], strict = False) -> (int, []):
     term_abstracts = [get_term_abstract(term) for term in terms]
     if strict:
@@ -141,24 +140,24 @@ def conjunctive_query(terms: [str], strict = False) -> (int, []):
     
     # Stream fetch top 20 doc results
     conjunctiveScoreIDsTop20 = Heap.FixSizeCountedMaxHeap(20)
-    [conjunctiveScoreIDsTop20.push(item) for item in conjReader]
+    [conjunctiveScoreIDsTop20.push((BM25_estimate(IDFs, scoreTFs), (scoreTFs, docID))) for (scoreTFs, docID) in conjReader]
 
     # Actual doc abstract fetch and cal
-    doc_summeries = [calculate_doc_summery(IDFs, scoreTFs, docID) for (scoreTFs, docID) in  conjunctiveScoreIDsTop20.nlargest(10)]
+    doc_summeries = [calculate_doc_summery(IDFs, scoreTFs, docID) for (bm25_est, (scoreTFs, docID)) in  conjunctiveScoreIDsTop20.nlargest(10)]
 
     docs = [get_doc(docID, offset, url)
                     for (bm25, occurance, docID, (offset, url, language, doc_length) )
                     in doc_summeries]
                     
-    snippets = [get_snippets(content, terms) for (title, content) in docs]
     return_items = [
-        (url, language, title, bm25, occurance, snippet)
+        (url, language, title, bm25, occurance, 
+        Snippet.generate(content, terms, lang=language)
+        )
         for (
             (bm25, occurance, docID, (offset, url, language, doc_length)),
-            (title, content),
-            snippet
+            (title, content)
         )
-        in zip(doc_summeries, docs, snippets)
+        in zip(doc_summeries, docs)
     ]
     return (conjunctiveScoreIDsTop20.length_original, return_items)
 
@@ -172,7 +171,7 @@ def single_query(term: str) -> (int, []):
                                    offsets_tf=result['tfOffs'],
                                    offsets_score=result['bmOffs'])
         block_reader.read_first()
-
+        
         conjunctiveScoreIDsTop20 = Heap.FixSizeCountedMaxHeap(20)
         [conjunctiveScoreIDsTop20.push(item) for item in block_reader]
         total_results = conjunctiveScoreIDsTop20.length_original
@@ -191,7 +190,7 @@ def single_query(term: str) -> (int, []):
             (bm25, docID, freq, url, language)
             ) for (bm25, docID, freq, offset, url, language) in return_items]
 
-        return (total_results, [(url, language, title, bm25, freq, get_snippets(content, [term])) 
+        return (total_results, [(url, language, title, bm25, freq, Snippet.generate(content, [term], lang=language)) 
             for ((title, content),
                 (bm25, docID, freq, url, language)) in return_items])
     else:
@@ -241,6 +240,8 @@ import importlib
 def reload():
     importlib.reload(BlockReader)
     importlib.reload(LexReader)
+    importlib.reload(Snippet)
+    importlib.reload(Heap)
 
 def cache_info():
     return [("Query: ", str(query_exec.cache_info() )),
