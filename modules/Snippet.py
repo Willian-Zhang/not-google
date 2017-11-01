@@ -9,13 +9,20 @@ latin_sep_words = re.compile(r"\W+")
 from itertools import chain
 
 def generate(content: str, keywords: [str], sentence_budget = 3, word_budget = 14, lang='en'):
+    if len(content) < 2:
+        return []
+
     lines = content.split(sep="\n")
     if lang == 'zh':
         lines = [jieba.lcut(l) for l in lines]
         merger = ''
+        word_budget = 2 * word_budget
     else:
         lines = [latin_sep_words.split(l) for l in lines]
         merger = ' '
+    
+    if len(lines) < sentence_budget:
+        return generate(content, keywords, 1, sentence_budget * word_budget, lang)
 
     small_lines = [l for l in lines if len(l)<= word_budget]
     big_lines   = [l for l in lines if len(l)> word_budget]
@@ -37,7 +44,13 @@ def generate(content: str, keywords: [str], sentence_budget = 3, word_budget = 1
         [line_heap.push((countA+countB, hcA+hcB)) for ((countA, hcA), (countB, hcB)) in sliding_window(countAndHalfs, size=2, step=1, fillvalue=[])]
     del big_lines
 
-    sentences = [merger.join(line) for (count, line) in line_heap.nlargest(sentence_budget)]
+    sorted_candidates = line_heap.nlargest(sentence_budget)
+
+    if sentence_budget > 1 and \
+            (len(sorted_candidates) < sentence_budget or sorted_candidates[1][0] < 2):
+        return generate(content, keywords, 1, sentence_budget * word_budget, lang)
+
+    sentences = [merger.join(line) for (count, line) in sorted_candidates]
 
     return sentences
 
