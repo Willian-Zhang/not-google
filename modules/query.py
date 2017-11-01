@@ -162,7 +162,7 @@ def conjunctive_query(terms: [str], strict = False) -> (int, []):
     ]
     return (conjunctiveScoreIDsTop20.length_original, return_items)
 
-def get_term_single(term: str) -> (int, []):
+def single_query(term: str) -> (int, []):
     result = get_term_abstract(term)
     if result:
         block_reader = BlockReader.SimpleBlockReader(fileObj=ii_file,
@@ -173,16 +173,11 @@ def get_term_single(term: str) -> (int, []):
                                    offsets_score=result['bmOffs'])
         block_reader.read_first()
 
-        result = [a for a in block_reader]
         conjunctiveScoreIDsTop20 = Heap.FixSizeCountedMaxHeap(20)
         [conjunctiveScoreIDsTop20.push(item) for item in block_reader]
+        total_results = conjunctiveScoreIDsTop20.length_original
 
-        total_results = len(result)
-        
-        heapq.heapify(result)
-        result = heapq.nlargest(20, result)
-
-        result = [(docID, freq, get_doc_abstract(docID)) for (score, freq, docID) in  result]
+        result = [(docID, freq, get_doc_abstract(docID)) for (score, freq, docID) in conjunctiveScoreIDsTop20.nlargest(20)]
 
         idf = IDF(total_results)
         result = [(BM25(freq, K_BM25(doc_length), idf), docID, freq, offset, url, language) 
@@ -218,7 +213,8 @@ def query_exec(term: str):
     if len(words) > 1:
         (total_results, search_result) = conjunctive_query(words)
     else:
-        (total_results, search_result) = get_term_single(term)
+        # (total_results, search_result) = conjunctive_query(words)
+        (total_results, search_result) = single_query(term)
     return (total_results, search_result)
 
 def query(term: str):
