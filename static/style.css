@@ -30,6 +30,10 @@ div#result{
     .slot-url{
         font-size: 14px;
         color: green;
+
+        white-space: nowrap;
+        overflow:hidden;
+        text-overflow:ellipsis;
     }
     .slot-snippet{
         font-size: 14px;

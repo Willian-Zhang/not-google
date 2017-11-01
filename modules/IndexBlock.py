@@ -98,44 +98,52 @@ class BlockReader:
         self.current_in_block_indice += 1
         self.current_id += self.ids[self.current_in_block_indice]
 
-    def next_GEQ(self, docID = None):
+    def next_id(self):
+        """
+        **returns** None or docID
+        """
+        if self.current_in_block_indice < (len(self.ids) - 1):
+            self._increment_current_in_block_id()
+            return self.current_id 
+        else:
+            self.current_in_block_indice = 0
+            if self.current_block_indice < (len(self.offsets_id) - 1):
+                self.current_block_indice += 1
+
+                self._read_current_block_ids()
+                
+                return self.current_id 
+            else:
+                return None
+
+    def next_GEQ(self, docID):
         """
         if same docID provided, will not consider EQ!
         """
-        if docID is None:
-            if self.current_in_block_indice < (len(self.ids) - 1):
-                self._increment_current_in_block_id()
+        if self.current_id >= docID:
+            return self.current_id 
+
+        # may in next block : exist next block
+        while self.current_block_indice < (len(self.begin_ids) - 1) and self.begin_ids[self.current_block_indice+1] <= docID:
+            # in or after next block
+
+            self.current_block_indice += 1
+
+            # not 0 because later will add 1
+            self.current_in_block_indice = -1
+        if self.current_in_block_indice == -1:
+            # block switched
+            self._read_current_block_ids()
+
+        # check current block
+        while self.current_in_block_indice < (len(self.ids) - 1):
+            # still id left
+            self._increment_current_in_block_id()
+
+            if self.current_id >= docID:
                 return self.current_id 
-            else:
-                self.current_in_block_indice = 0
-                if self.current_block_indice < (len(self.offsets_id) - 1):
-                    self.current_block_indice += 1
-
-                    self._read_current_block_ids()
-                    
-                    return self.current_id 
-                else:
-                    return None
-        else:
-            # may in next block : exist next block
-            while self.current_block_indice < (len(self.begin_ids) - 1) and self.begin_ids[self.current_block_indice+1] <= docID:
-                # in or after next block
-
-                self.current_block_indice += 1
-
-                # not 0 because later will add 1
-                self.current_in_block_indice = -1
-            if self.current_in_block_indice == -1:
-                # block switched
-                self._read_current_block_ids()
-
-            # check current block
-            while self.current_in_block_indice < (len(self.ids) - 1):
-                self._increment_current_in_block_id()
-                # still id left
-                if self.ids[self.current_in_block_indice] > docID:
-                    return self.current_id 
-            return None
+            
+        return None
 
     def get_payload(self):
         """
@@ -159,7 +167,7 @@ class BlockReader:
 
     def __iter__(self):
         while True:
-            docID = self.next_GEQ()
+            docID = self.next_id()
             if docID:
                 (score, freq) = self.get_payload()
                 yield (score, freq, docID)

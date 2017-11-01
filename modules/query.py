@@ -1,5 +1,5 @@
-from modules import IndexBlock
-from modules import LexReader
+from modules import IndexBlock, LexReader, Heap
+
 import pymongo
 
 import time, functools
@@ -12,6 +12,13 @@ import redis
 r = redis.Redis(unix_socket_path=Config['Query']['RedisPath'], db=int(Config['Query']['RedisDB']))
 
 import heapq
+
+from langid.langid import LanguageIdentifier, model
+possible_langs = ['zh', 'en','fr','de','it','la','es']
+Language = LanguageIdentifier.from_modelstring(model, norm_probs=True)
+Language.set_languages(possible_langs)
+import jieba
+jieba.initialize()
 
 ii_file = open(Config['InvertedIndex']['IIFile'], mode='rb')
 
@@ -26,25 +33,6 @@ def read_index():
     return LexReader.index
 read_index()
 
-def get_doc_deprecated(docID: int):
-    # r.hmget(docID, ['off', 'url', 'lang', 'len'])
-    # [b'297110936', b'https://...', b'en', b'1926']
-    # {b'off': b'297110936', b'url': b'https://...', b'lang': b'en', b'len': b'1926'} 
-    urlSlot = r.hgetall(docID)
-    # // TODO: remove
-    try:
-        doc = LexReader.get_full_doc(docID, int(urlSlot[b'off']), urlSlot[b'url'].decode())
-    except KeyError as identifier:
-        import sys
-        print("*Key error:", docID, file=sys.stderr)
-        return (None, None)
-    
-    (title, doc) = doc.decode().split(sep="\n", maxsplit=1)
-    return (docID,
-            urlSlot[b'url'].decode(),
-            urlSlot[b'lang'].decode(),
-            urlSlot[b'len'].decode(),
-            title, doc)
 
 def get_snippets(content, keywords):
     first_three = content.split(sep="\n", maxsplit=3)[:3]
@@ -61,7 +49,8 @@ def get_doc(docID: int, offset: int, url: str):
     else:
         return (splitted[0], "")
 
-def get_doc_index(docID: int):
+@functools.lru_cache(maxsize=65536)
+def get_doc_abstract(docID: int):
     """
     return (offset, url, language, doc_length)
     """
@@ -94,45 +83,122 @@ def K_BM25(doc_len: int) -> float:
 def BM25(TF: int, K: float, IDF: float) -> float:
     # IDF * (K1 + 1) * TF / ( K + TF )
     return IDF * BM_K1_P1 * TF / (K * TF)
+
+@functools.lru_cache(maxsize=10240)
+def get_term_abstract(term: str):
+    """
+    **cache**: Yes
+    **returns**:
+    ``` json
+        {
+            '_id': ObjectId('...'), 
+            'term': b'\xe4\xb8\xad\xe6\x96\x87', 
+            'count': 79848, 
+            'off': 17839026787, 
+            'begins': [...],
+            'idOffs': [...],
+            'tfOffs': [...],
+            'bmOffs': [...]
+        }
+    ```
+    """
+    return termIndexCollection.find_one({'term': term.encode()})
+
+class ConjunctiveBlockReader:
+    def __init__(self, results: []):
+        self.blockreaders : [IndexBlock.BlockReader] = [IndexBlock.BlockReader(fileObj=ii_file,
+                                                                    start_offset=result['off'], 
+                                                                    begin_ids=result['begins'], 
+                                                                    offsets_id=result['idOffs'], 
+                                                                    offsets_tf=result['tfOffs'],
+                                                                    offsets_score=result['bmOffs'])
+                                                        for result in results]
+        self.blockreadersIndiceMax = len(self.blockreaders) - 1
     
-def conjunctive_query(terms):
-    results = [ (term, termIndexCollection.find_one({'term': term.encode()})) for term in terms]
-    for (_, term_table_result) in results:
-        if term_table_result is None:
+    def read(self):
+        [blockreader.read_first() for blockreader in self.blockreaders]
+        # force start reading
+        did = 1
+        while did:
+            i = 0
+            # print((i, did) , end='')
+            while i < len(self.blockreaders):
+                done = self.blockreaders[i].next_GEQ(did)
+                i += 1
+                # print(' ->', (i, done) , end='')
+                if done != did:
+                    # not match in the middle
+                    did = done
+                    break
+                elif i == len(self.blockreaders):
+                    # match for last one
+                    result :[(int, int)] = [blockreader.get_payload() for blockreader in self.blockreaders]
+                    docID = did
+                    did += 1
+                    yield (result, docID)
+            # print('')
+
+    def __iter__(self):
+        return self.read()
+
+def calculate_doc_summery(IDFs: [int], scoreTFs: [], docID: int):
+    """
+    **returns** (BM2.5_sumed, doc_abstract)
+    """
+    # both in order of terms
+    # [IDF, ...]
+    # [(extimated_score, TF), ... ] = scoreTFs 
+    (offset, url, language, doc_length) = get_doc_abstract(docID)
+    K = K_BM25(doc_length)
+    return (
+            sum([BM25(TF, K, IDF) 
+                for (IDF, (_, TF)) 
+                in zip(IDFs, scoreTFs)
+                ]), 
+            sum([TF for (_, TF) in scoreTFs]),
+            docID,
+            (offset, url, language, doc_length)
+            )
+
+def conjunctive_query(terms: [str], strict = False) -> (int, []):
+    term_abstracts = [get_term_abstract(term) for term in terms]
+    if strict:
+        for term_table_result in term_abstracts:
+            if term_table_result is None:
+                return (0, [])
+    else:
+        (term_abstracts, terms) = zip(*[(term_abstract_result, term) for (term_abstract_result, term) in zip(term_abstracts, terms) if term_abstract_result is not None])
+        if len(term_abstracts) == 0:
             return (0, [])
-    results = sorted(results, lambda r: r['count'])
-    blockreaders = [IndexBlock.BlockReader(fileObj=ii_file,
-                                   start_offset=result['off'], 
-                                   begin_ids=result['begins'], 
-                                   offsets_id=result['idOffs'], 
-                                   offsets_tf=result['tfOffs'],
-                                   offsets_score=result['bmOffs'])
-                    for result in results]
-    # blockreaders[0].read_first()
-    for blockreader in blockreaders: 
-        blockreader.read_first()
-
-    conjunctiveIDs = []
-    i = 0
-    did = True
-    while did:
-        i = 0
-        did = blockreaders[i].next_GEQ()
-        while i < len(blockreaders):
-            i += 1
-            if blockreaders[i].next_GEQ(did) != did:
-                # not match in the middle
-                break
-            elif i == (len(blockreaders) - 1):
-                # match for last one
-                
-                freqs = [blockreader.get_freq() for blockreader in blockreaders]
-                print("*match:", freqs)
-                conjunctiveIDs.append((did, freqs))
     
+    term_abstracts = sorted(term_abstracts, key=lambda r: r['count'])
+    IDFs = [IDF(term_len) for term_len in [r['count'] for r in term_abstracts]]
 
-def get_term_single(term: str):
-    result = termIndexCollection.find_one({'term': term.encode()})
+    conjunctiveScoreIDs = Heap.FixSizeCountedMaxHeap(20)
+    conjReader = ConjunctiveBlockReader(term_abstracts)
+    
+    [conjunctiveScoreIDs.push(calculate_doc_summery(IDFs, scoreTFs, docID)) for (scoreTFs, docID) in conjReader]
+
+    doc_summeries = conjunctiveScoreIDs.nlargest(20)
+
+    docs = [get_doc(docID, offset, url)
+                    for (bm25, occurance, docID, (offset, url, language, doc_length) )
+                    in doc_summeries]
+                    
+    snippets = [get_snippets(content, terms) for (title, content) in docs]
+    return_items = [
+        (url, language, title, bm25, occurance, snippet)
+        for (
+            (bm25, occurance, docID, (offset, url, language, doc_length)),
+            (title, content),
+            snippet
+        )
+        in zip(doc_summeries, docs, snippets)
+    ]
+    return (conjunctiveScoreIDs.length_original, return_items)
+
+def get_term_single(term: str) -> (int, []):
+    result = get_term_abstract(term)
     if result:
         block_reader = IndexBlock.BlockReader(fileObj=ii_file,
                                    start_offset=result['off'], 
@@ -148,7 +214,7 @@ def get_term_single(term: str):
         heapq.heapify(result)
         result = heapq.nlargest(20, result)
 
-        result = [(docID, freq, get_doc_index(docID)) for (score, freq, docID) in  result]
+        result = [(docID, freq, get_doc_abstract(docID)) for (score, freq, docID) in  result]
 
         idf = IDF(total_results)
         result = [(BM25(freq, K_BM25(doc_length), idf), docID, freq, offset, url, language) 
@@ -168,9 +234,23 @@ def get_term_single(term: str):
     else:
         return (0, [])
 
+import re
+latin_sep_words = re.compile(r"\W+")
+non_latin_words_pattern = re.compile(r"([^\u0000-\u007F]|\w)+")
+
 @functools.lru_cache(maxsize=512)
 def query_exec(term: str):
-    (total_results, search_result) = get_term_single(term)
+    (term_lang, _) = Language.classify(term)
+    if term_lang == 'zh':
+        words = jieba.lcut_for_search(term)
+        words = [word for word in words if non_latin_words_pattern.match(word)]
+    else:
+        words = latin_sep_words.split(term)
+    print(term_lang, words)
+    if len(words) > 1:
+        (total_results, search_result) = conjunctive_query(words)
+    else:
+        (total_results, search_result) = get_term_single(term)
     return (total_results, search_result)
 
 def query(term: str):
@@ -199,10 +279,14 @@ def reload():
     importlib.reload(LexReader)
 
 def cache_info():
-    return [("Query: ", str(query_exec.cache_info()))]
+    return [("Query: ", str(query_exec.cache_info() )),
+            ("Terms: ", str(get_term_abstract.cache_info() )),
+            ("Docs : ", str(get_doc_abstract.cache_info() ))]
 
 def cache_clear():
     query_exec.cache_clear()
+    get_term_abstract.cache_clear()
+    get_doc_abstract.cache_clear()
     pass
 
 def close():
