@@ -16,10 +16,14 @@ $(document).ready(()=>{
     };
 
     let load_page = function(){
-        let locationSearch = JSON.parse('{"' + decodeURI(location.search.substring(1)).replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g,'":"') + '"}');
-        if(locationSearch.s){
-            search(locationSearch.s);
-            $('#search-form input').val(locationSearch.s);
+        try {
+            let locationSearch = JSON.parse('{"' + decodeURI(location.search.substring(1)).replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g,'":"') + '"}');
+            if(locationSearch.s){
+                search(locationSearch.s);
+                $('#search-form input').val(locationSearch.s);
+            }
+        } catch (error) {
+            
         }
     };
     load_page();

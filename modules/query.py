@@ -1,4 +1,4 @@
-from modules import IndexBlock, LexReader, Heap
+from modules import LexReader, Heap, BlockReader
 
 import pymongo
 
@@ -104,43 +104,6 @@ def get_term_abstract(term: str):
     """
     return termIndexCollection.find_one({'term': term.encode()})
 
-class ConjunctiveBlockReader:
-    def __init__(self, results: []):
-        self.blockreaders : [IndexBlock.BlockReader] = [IndexBlock.BlockReader(fileObj=ii_file,
-                                                                    start_offset=result['off'], 
-                                                                    begin_ids=result['begins'], 
-                                                                    offsets_id=result['idOffs'], 
-                                                                    offsets_tf=result['tfOffs'],
-                                                                    offsets_score=result['bmOffs'])
-                                                        for result in results]
-        self.blockreadersIndiceMax = len(self.blockreaders) - 1
-    
-    def read(self):
-        [blockreader.read_first() for blockreader in self.blockreaders]
-        # force start reading
-        did = 1
-        while did:
-            i = 0
-            # print((i, did) , end='')
-            while i < len(self.blockreaders):
-                done = self.blockreaders[i].next_GEQ(did)
-                i += 1
-                # print(' ->', (i, done) , end='')
-                if done != did:
-                    # not match in the middle
-                    did = done
-                    break
-                elif i == len(self.blockreaders):
-                    # match for last one
-                    result :[(int, int)] = [blockreader.get_payload() for blockreader in self.blockreaders]
-                    docID = did
-                    did += 1
-                    yield (result, docID)
-            # print('')
-
-    def __iter__(self):
-        return self.read()
-
 def calculate_doc_summery(IDFs: [int], scoreTFs: [], docID: int):
     """
     **returns** (BM2.5_sumed, doc_abstract)
@@ -173,13 +136,15 @@ def conjunctive_query(terms: [str], strict = False) -> (int, []):
     
     term_abstracts = sorted(term_abstracts, key=lambda r: r['count'])
     IDFs = [IDF(term_len) for term_len in [r['count'] for r in term_abstracts]]
-
-    conjunctiveScoreIDs = Heap.FixSizeCountedMaxHeap(20)
-    conjReader = ConjunctiveBlockReader(term_abstracts)
     
-    [conjunctiveScoreIDs.push(calculate_doc_summery(IDFs, scoreTFs, docID)) for (scoreTFs, docID) in conjReader]
+    conjReader = BlockReader.ConjunctiveBlockReader(ii_file, term_abstracts)
+    
+    # Stream fetch top 20 doc results
+    conjunctiveScoreIDsTop20 = Heap.FixSizeCountedMaxHeap(20)
+    [conjunctiveScoreIDsTop20.push(item) for item in conjReader]
 
-    doc_summeries = conjunctiveScoreIDs.nlargest(20)
+    # Actual doc abstract fetch and cal
+    doc_summeries = [calculate_doc_summery(IDFs, scoreTFs, docID) for (scoreTFs, docID) in  conjunctiveScoreIDsTop20.nlargest(10)]
 
     docs = [get_doc(docID, offset, url)
                     for (bm25, occurance, docID, (offset, url, language, doc_length) )
@@ -195,12 +160,12 @@ def conjunctive_query(terms: [str], strict = False) -> (int, []):
         )
         in zip(doc_summeries, docs, snippets)
     ]
-    return (conjunctiveScoreIDs.length_original, return_items)
+    return (conjunctiveScoreIDsTop20.length_original, return_items)
 
 def get_term_single(term: str) -> (int, []):
     result = get_term_abstract(term)
     if result:
-        block_reader = IndexBlock.BlockReader(fileObj=ii_file,
+        block_reader = BlockReader.SimpleBlockReader(fileObj=ii_file,
                                    start_offset=result['off'], 
                                    begin_ids=result['begins'], 
                                    offsets_id=result['idOffs'], 
@@ -209,6 +174,9 @@ def get_term_single(term: str) -> (int, []):
         block_reader.read_first()
 
         result = [a for a in block_reader]
+        conjunctiveScoreIDsTop20 = Heap.FixSizeCountedMaxHeap(20)
+        [conjunctiveScoreIDsTop20.push(item) for item in block_reader]
+
         total_results = len(result)
         
         heapq.heapify(result)
