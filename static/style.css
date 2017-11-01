@@ -11,11 +11,12 @@ div#result{
         font-size: 14px;
         color: grey;
     }
-    @media only screen and (max-width: 600px), only screen and (max-device-width: 600px) {
-        div#result{
-            margin-left: 30px;
-        }
+
+@media only screen and (max-width: 600px), only screen and (max-device-width: 600px) {
+    div#result{
+        margin-left: 30px;
     }
+}
 #slots{
     margin-top: 0px;
 }
@@ -78,20 +79,26 @@ html, body {
     background-color: #efefef;
 }
 
+.justify-content-center-mobile-only{
+    padding-left: 100px;
+}
 /* center */
 .navbar .navbar-brand {
     display: inline-block;
     float: none;
     vertical-align: top;
     }
-    @media (max-width: 768px) {
-        .navbar-brand
-            {
-                /* position: absolute; */
-                width: 100%;
-                left: 0;
-                text-align: center;
-                margin:0 auto;
-            }
+    @media (max-width: 991px) {
+        .navbar-brand{
+            /* position: absolute; */
+            width: 100%;
+            left: 0;
+            text-align: center;
+            margin:0 auto;
         }
-    
+        .justify-content-center-mobile-only {
+            -ms-flex-pack: center !important;
+            justify-content: center !important;
+            padding-left: 0;
+        }
+    }
