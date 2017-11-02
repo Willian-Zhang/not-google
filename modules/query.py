@@ -204,7 +204,7 @@ non_latin_words_pattern = re.compile(r"([^\u0000-\u007F]|\w)+")
 def query_exec(term: str):
     (term_lang, _) = Language.classify(term)
     if term_lang == 'zh':
-        words = jieba.lcut_for_search(term)
+        words = jieba.lcut(term)
         words = [word for word in words if non_latin_words_pattern.match(word)]
     else:
         words = latin_sep_words.split(term)

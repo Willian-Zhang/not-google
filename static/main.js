@@ -23,7 +23,7 @@ $(document).ready(()=>{
                 $('#search-form input').val(locationSearch.s);
             }
         } catch (error) {
-            
+            console.warn(error)
         }
     };
     load_page();
