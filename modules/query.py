@@ -214,17 +214,20 @@ def query_exec(term: str):
     else:
         # (total_results, search_result) = conjunctive_query(words)
         (total_results, search_result) = single_query(term)
-    return (total_results, search_result)
+    meta = (total_results, words)
+    return (meta, search_result)
 
 def query(term: str):
     start = time.process_time()
-    (total_results, search_result) = query_exec(term)
+    (meta, search_result) = query_exec(term)
+    (total_results, keywords) = meta
     end = time.process_time()
     return {
         "meta":{
             "results": total_results,
             "time"   : end - start,
-            "query"  : term
+            "query"  : term,
+            "keywords": keywords
         },
         "results": [{
             "url": url,

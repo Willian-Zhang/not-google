@@ -9,7 +9,7 @@ $(document).ready(()=>{
     let searchResultElement = $('#slots');
     let search = function(keyword){
         document.title = `${keyword} - Not Google`;
-        window.history.pushState(keyword, document.title, `/?s=${encodeURI(keyword)}`);
+        window.history.pushState(keyword, document.title, `/?s=${encodeURIComponent(keyword)}`);
         socket.emit('search', keyword);
         metaInfoElement.text('Searching...');
         searchResultElement.empty();
@@ -19,8 +19,17 @@ $(document).ready(()=>{
         try {
             let locationSearch = JSON.parse('{"' + decodeURI(location.search.substring(1)).replace(/"/g, '\\"').replace(/&/g, '","').replace(/=/g,'":"') + '"}');
             if(locationSearch.s){
-                search(locationSearch.s);
+                // this is okey
                 $('#search-form input').val(locationSearch.s);
+                if(socket.connected){
+                    search(locationSearch.s);
+                }else{
+                    socket.once('connect', function(){
+                        setTimeout(()=>{
+                            search(locationSearch.s);
+                        }, 100);
+                    })
+                }
             }
         } catch (error) {
             console.warn(error)
@@ -74,6 +83,9 @@ $(document).ready(()=>{
                 });
                 if (slotItem.snippets.length > 1){
                     snippetElement.addClass("shrink-line");
+                }
+                if(result.meta.keywords){
+                    snippetElement.highlight(result.meta.keywords);
                 }
                 return element;
             });

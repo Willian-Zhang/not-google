@@ -39,10 +39,16 @@ div#result{
     }
     .slot-snippet{
         font-size: 14px;
+        color: #545454;
+        line-height: 1.4;
     }
+        .highlight {
+            color: #6a6a6a;
+            font-weight: bold;
+        }
     .slot-infos{
         font-size: 14px;
-        color: rgb(128, 128, 128);
+        color: #808080;
     }
     .big-info{
         margin-top: 50px;
@@ -102,3 +108,4 @@ html, body {
             padding-left: 0;
         }
     }
+
