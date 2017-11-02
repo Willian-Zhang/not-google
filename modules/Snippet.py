@@ -16,7 +16,11 @@ def generate(content: str, keywords: [str], sentence_budget = 3, word_budget = 1
     if lang == 'zh':
         lines = [jieba.lcut(l) for l in lines]
         merger = ''
-        word_budget = 2 * word_budget
+        # English avg word length = 5.1
+        # Chinese avg word length = 1.4~1.65
+        # Chinese charactor size  = 2
+        # so 5.1/1.65/2 = 1.54
+        word_budget = 1.54 * word_budget
     else:
         lines = [latin_sep_words.split(l) for l in lines]
         merger = ' '
