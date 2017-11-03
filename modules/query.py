@@ -1,4 +1,4 @@
-from modules import LexReader, Heap, BlockReader, Snippet
+from modules import LexReader, Heap, BlockReader, Snippet, BM25
 
 import pymongo
 
@@ -59,26 +59,6 @@ def get_doc_abstract(docID: int):
             urlSlot[b'lang'].decode(),
             int(urlSlot[b'len'].decode()))
 
-import math
-BM_N_doc = 8521860
-BM_N_term = 4151693235
-BM_Doc_AVG_Len = BM_N_term/BM_N_doc
-BM_K1 = 1.2
-BM_K1_P1 = BM_K1 + 1
-BM_b  = 0.75
-BM_K2 = BM_K1 * (1 - BM_b)
-BM_K3 = BM_K1 * BM_b / BM_Doc_AVG_Len
-def IDF(term_len: int) -> float:
-    return math.log((BM_N_doc - term_len + 0.5)/(term_len + 0.5))
-
-def K_BM25(doc_len: int) -> float:
-    # K = K2 + |d| * K3
-    return BM_K2 + doc_len * BM_K3
-
-def BM25(TF: int, K: float, IDF: float) -> float:
-    # IDF * (K1 + 1) * TF / ( K + TF )
-    return IDF * BM_K1_P1 * TF / (K * TF)
-
 @functools.lru_cache(maxsize=10240)
 def get_term_abstract(term: str):
     """
@@ -107,9 +87,9 @@ def calculate_doc_summery(IDFs: [int], scoreTFs: [], docID: int):
     # [IDF, ...]
     # [(extimated_score, TF), ... ] = scoreTFs 
     (offset, url, language, doc_length) = get_doc_abstract(docID)
-    K = K_BM25(doc_length)
+    K = BM25.K_BM25(doc_length)
     return (
-            sum([BM25(TF, K, IDF) 
+            sum([BM25.BM25(TF, K, IDF) 
                 for (IDF, (_, TF)) 
                 in zip(IDFs, scoreTFs)
                 ]), 
@@ -179,7 +159,7 @@ def single_query(term: str) -> (int, []):
         result = [(docID, freq, get_doc_abstract(docID)) for (score, freq, docID) in conjunctiveScoreIDsTop20.nlargest(20)]
 
         idf = IDF(total_results)
-        result = [(BM25(freq, K_BM25(doc_length), idf), docID, freq, offset, url, language) 
+        result = [(BM25.BM25(freq, K_BM25(doc_length), idf), docID, freq, offset, url, language) 
                   for (docID, freq, (offset, url, language, doc_length)) in  result]
 
         heapq.heapify(result)
@@ -245,6 +225,7 @@ def reload():
     importlib.reload(LexReader)
     importlib.reload(Snippet)
     importlib.reload(Heap)
+    importlib.reload(BM25)
 
 def cache_info():
     return [("Query: ", str(query_exec.cache_info() )),
