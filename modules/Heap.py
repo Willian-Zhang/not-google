@@ -31,6 +31,9 @@ class FixSizeMaxHeap:
     def nlargest(self, n: int):
         return heapq.nlargest(n, self.data)
 
+    def nsmallest(self, n: int):
+        return heapq.nsmallest(n, self.data)
+
 class FixSizeCountedMaxHeap(FixSizeMaxHeap):
     def __init__(self, size: int):
         super().__init__(size)

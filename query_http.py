@@ -17,26 +17,28 @@ async def index(request):
 #     print("connect ", sid)
 
 @sio.on('search', namespace='/search')
-async def search(sid, data: str):
-    if data.startswith(':'):
+async def search(sid, data):
+    keyword = data['keyword']
+    page    = int(data['page'])
+    if keyword.startswith(':'):
         # commnad
-        print(str(data))
-        if data == ":reload":
+        print(str(keyword))
+        if keyword == ":reload":
             query.reload()
             importlib.reload(query)
             print("..reloaded")
             await sio.emit('simple info', data='Reloaded', room=sid, namespace='/search')
-        elif data == ":cache":
+        elif keyword == ":cache":
             infos = query.cache_info()
             await sio.emit('multiple info', data=infos, room=sid, namespace='/search')
-        elif data == ":cache-clear":
+        elif keyword == ":cache-clear":
             query.cache_clear()
             await sio.emit('simple info', data='Cache Cleared', room=sid, namespace='/search')
         else: 
             await sio.emit('simple info', data='Unkown Instruction', room=sid, namespace='/search')
     else:
-        print("*search:", str(data))
-        results = query.query(data)
+        print("*search:", str(keyword), page)
+        results = query.query(keyword, page=page)
         await sio.emit('search result', data=results, room=sid, namespace='/search')
 
 # @sio.on('disconnect', namespace='/search')
