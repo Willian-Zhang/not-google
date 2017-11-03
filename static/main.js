@@ -9,7 +9,7 @@ $(document).ready(()=>{
     let searchResultElement = $('#slots');
     let search = function(keyword){
         document.title = `${keyword} - Not Google`;
-        window.history.pushState(keyword, document.title, `/?s=${encodeURIComponent(keyword)}`);
+        window.history.pushState(keyword, document.title, `/?s=${encodeURI(keyword)}`);
         socket.emit('search', keyword);
         metaInfoElement.text('Searching...');
         searchResultElement.empty();
