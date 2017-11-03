@@ -101,7 +101,48 @@ def calculate_doc_summery(IDFs: [int], scoreTFs: [], docID: int):
 def BM25_estimate(IDFs: [int], scoreTFs: [int]):
     return sum([idf*score for (idf, (score, tf)) in zip(IDFs, scoreTFs)])
 
+def disjunctive_query(terms: [str]) -> (int, []):
+    term_abstracts = [get_term_abstract(term) for term in terms]
+    (term_abstracts, terms) = zip(*[(term_abstract_result, term) for (term_abstract_result, term) in zip(term_abstracts, terms) if term_abstract_result is not None])
+    if len(term_abstracts) == 0:
+        return (0, [])
+    
+    IDFs = [BM25.IDF(term_len) for term_len in [r['count'] for r in term_abstracts]]
+
+    disjReader = BlockReader.DisjunctiveBlockreader([BlockReader.SimpleBlockReaderFromResult(ii_file, term_abstract) for term_abstract in term_abstracts])
+
+    # disjReader = [*disjReader]
+    # print(disjReader)
+
+    # Stream fetch top 20 doc results
+    disjunctiveScoreIDsTop20 = Heap.FixSizeCountedMaxHeap(20)
+    [disjunctiveScoreIDsTop20.push((BM25_estimate(IDFs, scoreTFs), (scoreTFs, docID))) for (scoreTFs, docID) in disjReader]
+
+    doc_summeries = [calculate_doc_summery(IDFs, scoreTFs, docID) for (bm25_est, (scoreTFs, docID)) in  disjunctiveScoreIDsTop20.nlargest(10)]
+
+    docs = [get_doc(docID, offset, url)
+                    for (bm25, occurance, docID, (offset, url, language, doc_length) )
+                    in doc_summeries]
+                    
+    return_items = [
+        (url, language, title, bm25, occurance, 
+        Snippet.generate(content, terms, lang=language)
+        )
+        for (
+            (bm25, occurance, docID, (offset, url, language, doc_length)),
+            (title, content)
+        )
+        in zip(doc_summeries, docs)
+    ]
+    return (disjunctiveScoreIDsTop20.length_original, return_items)
+
+
 def conjunctive_query(terms: [str], strict = False) -> (int, []):
+    """
+    **strict**: 
+    if True, return no result if there is no conjection
+    else will ignore that term
+    """
     term_abstracts = [get_term_abstract(term) for term in terms]
     if strict:
         for term_table_result in term_abstracts:
@@ -113,7 +154,7 @@ def conjunctive_query(terms: [str], strict = False) -> (int, []):
             return (0, [])
     
     term_abstracts = sorted(term_abstracts, key=lambda r: r['count'])
-    IDFs = [IDF(term_len) for term_len in [r['count'] for r in term_abstracts]]
+    IDFs = [BM25.IDF(term_len) for term_len in [r['count'] for r in term_abstracts]]
     
     conjReader = BlockReader.ConjunctiveBlockReader([BlockReader.SimpleBlockReaderFromResult(ii_file, term_abstract) for term_abstract in term_abstracts])
     
@@ -157,8 +198,8 @@ def single_query(term: str) -> (int, []):
 
         result = [(docID, freq, get_doc_abstract(docID)) for (score, freq, docID) in conjunctiveScoreIDsTop20.nlargest(20)]
 
-        idf = IDF(total_results)
-        result = [(BM25.BM25(freq, K_BM25(doc_length), idf), docID, freq, offset, url, language) 
+        idf = BM25.IDF(total_results)
+        result = [(BM25.BM25(freq, BM25.K_BM25(doc_length), idf), docID, freq, offset, url, language) 
                   for (docID, freq, (offset, url, language, doc_length)) in  result]
 
         heapq.heapify(result)
@@ -181,18 +222,24 @@ non_latin_words_pattern = re.compile(r"([^\u0000-\u007F]|\w)+")
 
 @functools.lru_cache(maxsize=512)
 def query_exec(term: str):
-    (term_lang, _) = Language.classify(term)
-    if term_lang == 'zh':
-        words = jieba.lcut(term)
-        words = [word for word in words if non_latin_words_pattern.match(word)]
+    words = term.split('|')
+    if len(words) == 1:
+        (term_lang, _) = Language.classify(term)
+        if term_lang == 'zh':
+            words = jieba.lcut(term)
+            words = [word for word in words if non_latin_words_pattern.match(word)]
+        else:
+            words = latin_sep_words.split(term)
+        print(term_lang, words)
+        if len(words) > 1:
+            (total_results, search_result) = conjunctive_query(words)
+        else:
+            # (total_results, search_result) = conjunctive_query(words)
+            (total_results, search_result) = single_query(term)
     else:
-        words = latin_sep_words.split(term)
-    print(term_lang, words)
-    if len(words) > 1:
-        (total_results, search_result) = conjunctive_query(words)
-    else:
-        # (total_results, search_result) = conjunctive_query(words)
-        (total_results, search_result) = single_query(term)
+        (total_results, search_result) = disjunctive_query(term)
+        print(words)
+
     meta = (total_results, words)
     return (meta, search_result)
 
