@@ -122,5 +122,7 @@ if __name__ == "__main__":
     print('* Creating Index...', file=sys.stderr)
 
     termIndexCollection.create_index([("term", pymongo.HASHED)])
+    # termIndexCollection.create_index([("term", pymongo.ASCENDING)], collation=pymongo.collation.Collation(locale="en", caseLevel=True, strength=2))
+    # termIndexCollection.create_index([('term', pymongo.TEXT)], name='text')
     
 file.close()
