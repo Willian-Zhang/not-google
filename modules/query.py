@@ -136,7 +136,7 @@ def disjunctive_query(terms: [str]) -> (int, []):
     ]
     return (disjunctiveScoreIDsTop20.length_original, return_items)
 
-
+@functools.lru_cache(maxsize=512)
 def conjunctive_query(terms: [str], strict = False) -> (int, []):
     """
     **strict**: 
@@ -181,6 +181,7 @@ def conjunctive_query(terms: [str], strict = False) -> (int, []):
     ]
     return (conjunctiveScoreIDsTop20.length_original, return_items)
 
+@functools.lru_cache(maxsize=512)
 def single_query(term: str) -> (int, []):
     result = get_term_abstract(term)
     if result:
@@ -220,7 +221,7 @@ import re
 latin_sep_words = re.compile(r"\W+")
 non_latin_words_pattern = re.compile(r"([^\u0000-\u007F]|\w)+")
 
-@functools.lru_cache(maxsize=512)
+
 def query_exec(term: str):
     words = term.split('|')
     if len(words) == 1:
@@ -230,15 +231,17 @@ def query_exec(term: str):
             words = [word for word in words if non_latin_words_pattern.match(word)]
         else:
             words = latin_sep_words.split(term)
+        words = sorted(words)
         print(term_lang, words)
         if len(words) > 1:
             (total_results, search_result) = conjunctive_query(words)
         else:
-            # (total_results, search_result) = conjunctive_query(words)
+            #(total_results, search_result) = conjunctive_query(words)
             (total_results, search_result) = single_query(term)
     else:
-        (total_results, search_result) = disjunctive_query(term)
+        words = sorted(words)
         print(words)
+        (total_results, search_result) = disjunctive_query(frozenset(words))
 
     meta = (total_results, words)
     return (meta, search_result)
@@ -274,14 +277,19 @@ def reload():
     importlib.reload(BM25)
 
 def cache_info():
-    return [("Query: ", str(query_exec.cache_info() )),
+    return [("Single Query: ", str(single_query.cache_info() )),
+            ("Conjuctive Query: ", str(conjunctive_query.cache_info() )),
+            ("Disjunctive Query: ", str(disjunctive_query.cache_info() )),
             ("Terms: ", str(get_term_abstract.cache_info() )),
             ("Docs : ", str(get_doc_abstract.cache_info() ))]
 
 def cache_clear():
-    query_exec.cache_clear()
+    # query_exec.cache_clear()
     get_term_abstract.cache_clear()
     get_doc_abstract.cache_clear()
+    conjunctive_query.cache_clear()
+    disjunctive_query.cache_clear()
+    single_query.cache_clear()
     pass
 
 def close():
