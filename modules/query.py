@@ -118,7 +118,11 @@ def disjunctive_or_conjunctive_query(terms: [str], upper_threshold = 0.03, lower
 @functools.lru_cache(maxsize=512)
 def disjunctive_query(terms: [str], offset=0, length=10) -> (int, []):
     term_abstracts = [get_term_abstract(term) for term in terms]
-    (term_abstracts, terms) = zip(*[(term_abstract_result, term) for (term_abstract_result, term) in zip(term_abstracts, terms) if term_abstract_result is not None])
+    term_abstracts_and_term = [*zip(*[(term_abstract_result, term) for (term_abstract_result, term) in zip(term_abstracts, terms) if term_abstract_result is not None])]
+    if term_abstracts_and_term:
+        (term_abstracts, terms) = term_abstracts_and_term 
+    else:
+        return (0, [])
     if len(term_abstracts) == 0:
         return (0, [])
     
@@ -164,7 +168,11 @@ def conjunctive_query(terms: [str], strict = False, offset=0, length=10) -> (int
             if term_table_result is None:
                 return (0, [])
     else:
-        (term_abstracts, terms) = zip(*[(term_abstract_result, term) for (term_abstract_result, term) in zip(term_abstracts, terms) if term_abstract_result is not None])
+        term_abstracts_and_term = [*zip(*[(term_abstract_result, term) for (term_abstract_result, term) in zip(term_abstracts, terms) if term_abstract_result is not None])]
+        if term_abstracts_and_term:
+            (term_abstracts, terms) = term_abstracts_and_term 
+        else:
+            return (0, [])
         if len(term_abstracts) == 0:
             return (0, [])
     
