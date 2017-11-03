@@ -32,6 +32,8 @@ async def search(sid, data: str):
         elif data == ":cache-clear":
             query.cache_clear()
             await sio.emit('simple info', data='Cache Cleared', room=sid, namespace='/search')
+        else: 
+            await sio.emit('simple info', data='Unkown Instruction', room=sid, namespace='/search')
     else:
         print("*search:", str(data))
         results = query.query(data)
