@@ -1,4 +1,18 @@
 import heapq
+class Heap:
+    def __init__(self):
+        self.data = []
+
+    def push(self, item):
+        heapq.heappush(self.data, item)
+    
+    def pop(self):
+        return heapq.heappop(self.data)
+    
+    def nlargest(self, n: int):
+        return heapq.nlargest(n, self.data)
+
+    
 class FixSizeMaxHeap:
     def __init__(self, size: int):
         self.size = size
@@ -9,7 +23,7 @@ class FixSizeMaxHeap:
             if item > self.data[0]:
                 heapq.heapreplace(self.data, item)
         else:
-            heapq.heappush(self.data,item)
+            heapq.heappush(self.data, item)
         
     def pop(self):
         return heapq.heappop(self.data)
