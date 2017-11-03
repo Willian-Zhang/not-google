@@ -60,6 +60,16 @@ class BlockWriter:
     def finish(self):
         self._save()
 
+import functools
+
+@functools.lru_cache(maxsize=102400)
+def decode_file_part(file, offset, length):
+    """ This will change seek position
+    """
+    file.seek(offset)
+    bytess = file.read(length)
+    return vbcode.decode(bytess)
+
 class BlockReader:
     def __init__(self, fileObj, start_offset, begin_ids, offsets_id, offsets_tf, offsets_score):
         self.fileObj = fileObj
@@ -87,9 +97,7 @@ class BlockReader:
 
     def _read_current_block_ids(self):
         offset, length = self.offsets_id[self.current_block_indice]
-        self.fileObj.seek(offset)
-        bytess = self.fileObj.read(length)
-        self.ids = vbcode.decode(bytess)
+        self.ids = decode_file_part(self.fileObj, offset, length)
         self.current_in_block_indice = 0
         self.current_id = self.ids[0]
         return self.current_id
@@ -154,14 +162,10 @@ class BlockReader:
             self.current_payload_block_indice = self.current_block_indice
             # TF
             offset, length = self.offsets_tf[self.current_payload_block_indice]
-            self.fileObj.seek(offset)
-            bytess = self.fileObj.read(length)
-            self.tfs = vbcode.decode(bytess)
+            self.tfs = decode_file_part(self.fileObj, offset, length)
             # score
             offset, length = self.offsets_score[self.current_payload_block_indice]
-            self.fileObj.seek(offset)
-            bytess = self.fileObj.read(length)
-            self.scores = vbcode.decode(bytess)
+            self.scores = decode_file_part(self.fileObj, offset, length)
         # self.tfs read
         return (self.scores[self.current_in_block_indice], self.tfs[self.current_in_block_indice])
 

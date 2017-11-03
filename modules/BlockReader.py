@@ -80,3 +80,11 @@ def SimpleBlockReaderFromResult(fileObj, term_abstract) -> SimpleBlockReader:
                              offsets_id=term_abstract['idOffs'], 
                              offsets_tf=term_abstract['tfOffs'],
                              offsets_score=term_abstract['bmOffs'])
+
+def cache_info():
+    return [
+        ("Blocks: ", str(IndexBlock.decode_file_part.cache_info() ))
+    ]
+
+def clear_cache():
+    IndexBlock.decode_file_part.cache_clear()

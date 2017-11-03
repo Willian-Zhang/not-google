@@ -293,7 +293,7 @@ def cache_info():
             ("Disjunctive Query: ", str(disjunctive_query.cache_info() )),
             ("Compand Query: ", str(disjunctive_or_conjunctive_query.cache_info() )),
             ("Terms: ", str(get_term_abstract.cache_info() )),
-            ("Docs : ", str(get_doc_abstract.cache_info() ))]
+            ("Docs : ", str(get_doc_abstract.cache_info() ))] + BlockReader.cache_info()
 
 def cache_clear():
     # query_exec.cache_clear()
@@ -303,6 +303,7 @@ def cache_clear():
     conjunctive_query.cache_clear()
     disjunctive_query.cache_clear()
     single_query.cache_clear()
+    BlockReader.clear_cache()
     pass
 
 def close():
