@@ -102,11 +102,13 @@ def BM25_estimate(IDFs: [int], scoreTFs: [int]):
     return sum([idf*score for (idf, (score, tf)) in zip(IDFs, scoreTFs)])
 
 @functools.lru_cache(maxsize=512)
-def disjunctive_or_conjunctive_query(terms: [str], threshold = 0.1) -> (int, []):
+def disjunctive_or_conjunctive_query(terms: [str], upper_threshold = 0.03, lower_threshold = 200) -> (int, []):
     term_abstracts = [get_term_abstract(term) for term in terms]
     (term_abstracts, terms) = zip(*[(term_abstract_result, term) for (term_abstract_result, term) in zip(term_abstracts, terms) if term_abstract_result is not None])
-    total_count = sum([term_abs['count'] for term_abs in term_abstracts])
-    if total_count > threshold * BM25.BM_N_doc:
+    counts = [term_abs['count'] for term_abs in term_abstracts]
+    total_count = sum(counts)
+    min_count = min(counts)
+    if total_count > upper_threshold * BM25.BM_N_doc and min_count > lower_threshold:
         return conjunctive_query(terms, strict = False)
     else:
         return disjunctive_query(terms)
