@@ -218,18 +218,21 @@ def single_query(term: str, offset=0, length=10) -> (int, []):
                                    offsets_score=result['bmOffs'])
         block_reader.read_first()
         
-        conjunctiveScoreIDsTop20 = Heap.FixSizeCountedMaxHeap(20)
-        [conjunctiveScoreIDsTop20.push(item) for item in block_reader]
-        total_results = conjunctiveScoreIDsTop20.length_original
+        scoreIDsTopDoubleOffseted = Heap.FixSizeCountedMaxHeap(offset+length*2)
+        [scoreIDsTopDoubleOffseted.push(item) for item in block_reader]
+        total_results = scoreIDsTopDoubleOffseted.length_original
 
-        result = [(docID, freq, get_doc_abstract(docID)) for (score, freq, docID) in conjunctiveScoreIDsTop20.nlargest(20)]
+        scoreIDsTopDoubleCut = Heap.FixSizeCountedMaxHeap(length*2)
+        [scoreIDsTopDoubleCut.push(s) for s in scoreIDsTopDoubleOffseted.nsmallest(length*2)]
+
+        result = [(docID, freq, get_doc_abstract(docID)) for (score, freq, docID) in scoreIDsTopDoubleCut.nlargest(length)]
 
         idf = BM25.IDF(total_results)
         result = [(BM25.BM25(freq, BM25.K_BM25(doc_length), idf), docID, freq, offset, url, language) 
                   for (docID, freq, (offset, url, language, doc_length)) in  result]
 
         heapq.heapify(result)
-        return_items = heapq.nlargest(10, result)
+        return_items = heapq.nlargest(length, result)
 
         return_items = [(
             get_doc(docID, offset, url), 
@@ -264,8 +267,8 @@ def query_exec(term: str, page):
         if len(words) > 1:
             (total_results, search_result) = disjunctive_or_conjunctive_query(frozenset(words), offset=offset, length=length)
         else:
-            (total_results, search_result) = disjunctive_query(frozenset(words), offset=offset, length=length)
-            # (total_results, search_result) = single_query(term, offset=offset, length=length)
+            # (total_results, search_result) = disjunctive_query(frozenset(words), offset=offset, length=length)
+            (total_results, search_result) = single_query(term, offset=offset, length=length)
         print(term_lang, words)
     else:
         words = sorted(words)
