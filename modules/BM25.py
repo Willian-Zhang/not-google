@@ -16,5 +16,5 @@ def K_BM25(doc_len: int) -> float:
 
 def BM25(TF: int, K: float, IDF: float) -> float:
     # IDF * (K1 + 1) * TF / ( K + TF )
-    return IDF * BM_K1_P1 * TF / (K * TF)
+    return IDF * BM_K1_P1 * TF / (K + TF)
 
