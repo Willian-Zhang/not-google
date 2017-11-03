@@ -101,6 +101,17 @@ def calculate_doc_summery(IDFs: [int], scoreTFs: [], docID: int):
 def BM25_estimate(IDFs: [int], scoreTFs: [int]):
     return sum([idf*score for (idf, (score, tf)) in zip(IDFs, scoreTFs)])
 
+@functools.lru_cache(maxsize=512)
+def disjunctive_or_conjunctive_query(terms: [str], threshold = 0.1) -> (int, []):
+    term_abstracts = [get_term_abstract(term) for term in terms]
+    (term_abstracts, terms) = zip(*[(term_abstract_result, term) for (term_abstract_result, term) in zip(term_abstracts, terms) if term_abstract_result is not None])
+    total_count = sum([term_abs['count'] for term_abs in term_abstracts])
+    if total_count > threshold * BM25.BM_N_doc:
+        return conjunctive_query(terms, strict = False)
+    else:
+        return disjunctive_query(terms)
+
+@functools.lru_cache(maxsize=512)
 def disjunctive_query(terms: [str]) -> (int, []):
     term_abstracts = [get_term_abstract(term) for term in terms]
     (term_abstracts, terms) = zip(*[(term_abstract_result, term) for (term_abstract_result, term) in zip(term_abstracts, terms) if term_abstract_result is not None])
@@ -234,7 +245,7 @@ def query_exec(term: str):
         words = sorted(words)
         print(term_lang, words)
         if len(words) > 1:
-            (total_results, search_result) = conjunctive_query(words)
+            (total_results, search_result) = disjunctive_or_conjunctive_query(frozenset(words))
         else:
             #(total_results, search_result) = conjunctive_query(words)
             (total_results, search_result) = single_query(term)
@@ -280,6 +291,7 @@ def cache_info():
     return [("Single Query: ", str(single_query.cache_info() )),
             ("Conjuctive Query: ", str(conjunctive_query.cache_info() )),
             ("Disjunctive Query: ", str(disjunctive_query.cache_info() )),
+            ("Compand Query: ", str(disjunctive_or_conjunctive_query.cache_info() )),
             ("Terms: ", str(get_term_abstract.cache_info() )),
             ("Docs : ", str(get_doc_abstract.cache_info() ))]
 
@@ -287,6 +299,7 @@ def cache_clear():
     # query_exec.cache_clear()
     get_term_abstract.cache_clear()
     get_doc_abstract.cache_clear()
+    disjunctive_or_conjunctive_query.cache_clear()
     conjunctive_query.cache_clear()
     disjunctive_query.cache_clear()
     single_query.cache_clear()
