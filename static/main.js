@@ -54,7 +54,7 @@ $(document).ready(()=>{
         <h3 class="slot-title shrink-line"><a href="...">Title</a></h3>
         <div class="slot-url shrink-line">http://</div>
         <div class="slot-snippet ">Content</div>
-        <div class="slot-infos">BM2.5: </div>
+        <div class="slot-infos">BM25: </div>
     </div>`);
 
     socket.on('search result', function(result){
@@ -70,7 +70,7 @@ $(document).ready(()=>{
                 } catch (error) {
                     element.find('.slot-url').text(slotItem.url);
                 }
-                element.find('.slot-infos').text(`Language: ${slotItem.lang}, BM2.5: ${slotItem.bm25.toPrecision(3)}, Total: ${slotItem.count}`);
+                element.find('.slot-infos').text(`Language: ${slotItem.lang}, BM25: ${slotItem.bm25.toPrecision(3)}, Total: ${slotItem.count}`);
                 snippetElement = element.find('.slot-snippet')
                 snippetElement.empty()
                 
