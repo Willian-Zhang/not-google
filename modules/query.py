@@ -101,7 +101,6 @@ def calculate_doc_summery(IDFs: [int], scoreTFs: [], docID: int):
 def BM25_estimate(IDFs: [int], scoreTFs: [int]):
     return sum([idf*score for (idf, (score, tf)) in zip(IDFs, scoreTFs)])
 
-
 def conjunctive_query(terms: [str], strict = False) -> (int, []):
     term_abstracts = [get_term_abstract(term) for term in terms]
     if strict:
@@ -116,7 +115,7 @@ def conjunctive_query(terms: [str], strict = False) -> (int, []):
     term_abstracts = sorted(term_abstracts, key=lambda r: r['count'])
     IDFs = [IDF(term_len) for term_len in [r['count'] for r in term_abstracts]]
     
-    conjReader = BlockReader.ConjunctiveBlockReader(ii_file, term_abstracts)
+    conjReader = BlockReader.ConjunctiveBlockReader([BlockReader.SimpleBlockReaderFromResult(ii_file, term_abstract) for term_abstract in term_abstracts])
     
     # Stream fetch top 20 doc results
     conjunctiveScoreIDsTop20 = Heap.FixSizeCountedMaxHeap(20)

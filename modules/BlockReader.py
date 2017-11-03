@@ -1,14 +1,11 @@
 from . import IndexBlock
 
+
+SimpleBlockReader = IndexBlock.BlockReader
+
 class ConjunctiveBlockReader:
-    def __init__(self, fileObj, results: []):
-        self.blockreaders : [IndexBlock.BlockReader] = [IndexBlock.BlockReader(fileObj=fileObj,
-                                                                    start_offset=result['off'], 
-                                                                    begin_ids=result['begins'], 
-                                                                    offsets_id=result['idOffs'], 
-                                                                    offsets_tf=result['tfOffs'],
-                                                                    offsets_score=result['bmOffs'])
-                                                        for result in results]
+    def __init__(self, blockreaders: [SimpleBlockReader]):
+        self.blockreaders : [SimpleBlockReader] = blockreaders
     
     def read(self):
         [blockreader.read_first() for blockreader in self.blockreaders]
@@ -36,4 +33,13 @@ class ConjunctiveBlockReader:
     def __iter__(self):
         return self.read()
 
-SimpleBlockReader = IndexBlock.BlockReader
+class DisjunctiveBlockreader:
+    pass
+
+def SimpleBlockReaderFromResult(fileObj, term_abstract) -> SimpleBlockReader:
+    return SimpleBlockReader(fileObj=fileObj,
+                             start_offset=term_abstract['off'], 
+                             begin_ids=term_abstract['begins'], 
+                             offsets_id=term_abstract['idOffs'], 
+                             offsets_tf=term_abstract['tfOffs'],
+                             offsets_score=term_abstract['bmOffs'])
