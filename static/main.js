@@ -100,13 +100,12 @@ $(document).ready(()=>{
             paginationElement.prepend(ele);
         }
 
-        let next = nextTemplete.clone()
-        if(page == pages-1){
-            next.addClass("disabled");
-        }else{
+        
+        if(page < pages-2){
+            let next = nextTemplete.clone()
             next.click(page + 1, clickEventHandler)
-        }
-        paginationElement.append(next);
+            paginationElement.append(next);
+        }        
     };
 
     window.onpopstate = function(e){
