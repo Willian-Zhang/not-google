@@ -96,7 +96,7 @@ $(document).ready(()=>{
         if(startPage>0){
             var ele = pageItemElement.clone();
             ele.find("a").text(1);
-            ele.removeClass("d-none d-sm-block")
+            ele.removeClass("d-none d-sm-block");
             ele.click(0, clickEventHandler);
             paginationElement.prepend(ele);
         }
