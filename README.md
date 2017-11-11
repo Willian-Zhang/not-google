@@ -1,4 +1,4 @@
-
+   
 
 # Not Google
 
@@ -7,37 +7,78 @@ A Web Search Engine that is not google.
 ![Figure cached result](miscellaneous/Figure cached result.png)
 
 ### Table of contents
+* [Introduction](#introduction)
 * [Features](#features)
+    * [All](#all)
+    * [Inverted Index Building](#inverted-index-building)
+    * [Query Processing](#query-processing)
 * [How to run](#how-to-run)
   * [Requirements](#requirements)
   * [Installation](#installation)
     * [Recommand for running](#recommand-for-running)
       * [Virtual env](#virtual-env)
-  * [Usage](#usage)
+  * [Use pre-built Inverted Index](#use-pre-built-inverted-index)
+    * [Files](#files)
+    * [Download](#download)
+    * [Usage](#usage)
+  * [Build Inverted Index](#build-inverted-index)
     * [Example usage](#example-usage)
       * [Download wet files](#download-wet-files)
-      * [Lexicon extraction](#lexicon-extraction)
-      * [Sort Merging](#sort-merging)
+      * [Lexicon Extraction stage](#lexicon-extraction-stage)
+      * [Sort Merging stage](#sort-merging-stage)
     * [Actual usage](#actual-usage)
     * [More options](#more-options)
-  * [Notes on Running on Servers](#notes-on-running-on-servers)
-    * [HPC](#hpc)
-      * [Load Python 3 module](#load-python-3-module)
-* [Benchmark](#benchmark)
+    * [Notes on Running on Servers](#notes-on-running-on-servers)
+      * [HPC](#hpc)
+        * [Load Python 3 module](#load-python-3-module)
+  * [HTTP Server](#http-server)
+    * [Usage](#usage)
+      * [Supported Commnads](#supported-commnads)
+* [Benchmark & Statistics](#benchmark-&-statistics)
   * [Speed](#speed)
-    * [Full mode](#full-mode)
-    * [No Chinese mode](#no-chinese-mode)
-    * [Dumb mode](#dumb-mode)
+    * [Lexicon Extraction](#lexicon-extraction)
+      * [Full mode](#full-mode)
+      * [No Chinese mode](#no-chinese-mode)
+      * [Dumb mode](#dumb-mode)
     * [Merging and Sorting](#merging-and-sorting)
+    * [Query](#query)
+      * [Cached Result](#cached-result)
+      * [Single Query](#single-query)
+      * [Conjuctive Query](#conjuctive-query)
+      * [Disjuctive Query](#disjuctive-query)
   * [Size](#size)
-  * [Memory](#memory)
+  * [Memory for ii Build](#memory-for-ii-build)
 * [How it works](#how-it-works)
+  * [Structure](#structure)
+    * [Overall structure](#overall-structure)
+    * [Inverted Index Building](#inverted-index-building)
+    * [Query Processing](#query-processing)
+      * [Query](#query)
   * [File Structure](#file-structure)
+    * [URL Table](#url-table)
+    * [Term Table](#term-table)
+  * [Query Efficiency](#query-efficiency)
+  * [Ranking](#ranking)
+    * [BM25](#bm25)
+    * [Precomputed impact score](#precomputed-impact-score)
+  * [Snippet generation](#snippet-generation)
+  * [Chinese Query](#chinese-query)
+    * [Chinese Snippet Length Budget](#chinese-snippet-length-budget)
+  * [Design patterns](#design-patterns)
+    * [List Comprehention](#list-comprehention)
+    * [Defered result](#defered-result)
   * [Questions](#questions)
+    * [Inverted Index](#inverted-index)
+    * [Query](#query)
+    * [Other](#other)
+  * [Other open source library](#other-open-source-library)
 * [Future Work](#future-work)
+  * [Complex Query](#complex-query)
   * [Distributed](#distributed)
+    * [Multi Stage Approrach](#multi-stage-approrach)
+    * [UUID approach](#uuid-approach)
   * [Speed up](#speed-up)
-  * [Query optimization](#query-optimization)
+* [Limitations](#limitations)
 * [Development](#development)
 
 
@@ -246,15 +287,34 @@ Result:
 
 ![Figure Cat](miscellaneous/Figure Cat.png)
 
-# Benchmark
+### Usage 
+
+Use like `keyword1 keyword2` delimited using space are automaticlly determined as conjuctive or disjuctive query.
+
+To forcibliy use disjuective query, use `|` as a delimiter.
+
+
+
+Also type ":command" for commands:
+
+#### Supported Commnads
+
+```
+:reload
+:cache
+:cache-clear
+```
+
+
+
+# Benchmark & Statistics
 
 The following tests are done using Macbook Pro 2016 Laptop
 ## Speed
-Sorting and merging speed are significently low compared to `lexicon extraction`.
+### Lexicon Extraction
 
-So the testing are mostly about `lexicon extraction`.
+#### Full mode
 
-### Full mode
 (Language detect on, Chinese on, binary)
 
 ``` bash
@@ -264,7 +324,8 @@ $ python extract_lex.py --binary data/wet/* > "data/delete-this.log"
 
 ~ 5 mins/wet
 
-### No Chinese mode 
+#### No Chinese mode
+
 (Language detect on, Chinese off, binary)
 
 ``` bash
@@ -274,7 +335,8 @@ $ python extract_lex.py --binary --skipChinese data/wet/* > "data/delete-this.lo
 
 ~ 4 mins/wet
 
-### Dumb mode 
+#### Dumb mode
+
 (Language detect off, Chinese off, binary)
 
 ``` bash
@@ -290,22 +352,82 @@ Speed is significantly faster however in this mode search result is going to be 
 ``` bash
 $ ./scripts/merge.sh 
 ```
-~ $530k$ lines/s (for input)
+~ $113k$ lines/s (for input)
 
 ~ $52k$ inverted lists/s (for output)
 
 ~ $13$ s/wet (including Chinese words)
 
+###  Query
+
+The following test are runing on 300 WET files, containing 8,521,860 docs , 49,387,974 unqiue terms, 4,151,693,235 total inverted term items.
+
+#### Cached Result
+
+|  Results  | Query |       Time       |
+| :-------: | :---: | :--------------: |
+|  167,788  | "cat" | 0.000512 seconds |
+| 2,709,827 |  "0"  | 0.000334 seconds |
+| 5,872,440 | "to"  | 0.000630 seconds |
+
+#### Single Query
+
+|  Results  | Query |     Time      |
+| :-------: | :---: | :-----------: |
+|  167,788  | "cat" | 0.573 seconds |
+| 2,709,827 |  "0"  | 8.44 seconds  |
+| 5,872,440 | "to"  | 19.6 seconds  |
+
+#### Conjuctive Query
+
+| Results |        Query         |      Time      |
+| :-----: | :------------------: | :------------: |
+|   306   |      "cat dog"       | 0.0458 seconds |
+|  1,145  | "to be or not to be" | 0.275 seconds  |
+|  1,423  |        "8 9"         | 0.0998 seconds |
+
+#### Disjuctive Query
+
+|  Results  |      Query      |     Time     |
+| :-------: | :-------------: | :----------: |
+|  168,398  | "armadillo cat" | 1.27 seconds |
+|  286,334  |   "cat\|dog"    | 2.24 seconds |
+| 3,013,008 |   "why\|not"    | 25.3 seconds |
+
+
 ## Size
 
-~ $15k$  inverted lists/MB
+* 300 WET files
 
-``` bash
- #count line using:
-$ cat "data/inverted-index.ii" | wc -l
-```
+* 8,521,860 docs
 
-## Memory
+* 49,387,974 unqiue terms
+
+* 4,151,693,235 total inverted term items.
+
+* 18G generated ii file
+
+* ~ $364$  byte/inverted list 
+
+* ~ $2.7k$ inverted lists/MB
+
+* 3.5G Term Table for Storage
+
+* 1.3G Term Table Index Size
+
+* 0.9G URL Table  for Storage
+
+* 3.0G URL Table Memory Size
+
+* ~5 Hour for `Lexicon Extraction` stage using parallel rebuiding method
+
+* ~10 Hours for `Sort and Merge` stage
+
+  ​
+
+
+
+## Memory for ii Build
 
 Depends on buffer size, for default
 
@@ -327,13 +449,29 @@ Luckily mordern computers has a memory typically much greater than 1GiB. So as l
 
 ## Structure 
 
-Overall structure
+### Overall structure
 
 ![Figure Overall Structure](miscellaneous/Figure Overall Structure.png)
+
+### Inverted Index Building
 
 Detailed ` Inverted Index Building` Structure explaining what `Extract Lexicon` and `Merge` do.
 
 ![Figure Inverted Index Structure](miscellaneous/Figure Inverted Index Structure.png)
+
+### Query Processing
+
+Queries are first detected as Normal Queries or Commands. For Normal Queries, they are processed using Query (query,py). 
+
+#### Query
+
+Query => Language Dectection => Term reformation => Automatic Disjuction/Conjuction Detection => Disjuction/Conjuction/Single Query 
+
+Disjuction/Conjuction/Single Query => BlockReader ~> BM25 ~> filter => Sinippet => Meta Info Collection => Return
+
+
+
+Note: `~>` means it's done in memery efficient way, they are stream-like process.
 
 
 
@@ -399,6 +537,53 @@ Detailed ` Inverted Index Building` Structure explaining what `Extract Lexicon` 
 
 ```
 
+### URL Table
+
+URL Table are stored in memory using Redis.
+
+Data schema is as:
+
+``` json
+"docID":{
+  "url" : URL of docID (redundant)
+  "lang": langauge of document
+  "len" : length of document in terms
+  "off" : offset in WET file
+}
+```
+
+
+
+### Term Table
+
+Term Table are stored on disk cached by memery using MongoDB.
+
+Data schema is as:
+
+```json
+{
+  "term": term text in binary
+  "count" : total term occrance
+  "off" : offset in ii file
+  "begins" :[
+  	# begin docIDs in block
+  ]
+  "idOffs" : [ # docID offset in ii file
+  	( offset , length), 
+  	...
+  ]
+  "tfOffs" : [ # text frequnancy offset in ii file
+  	( offset , length), 
+  	...
+  ]
+  "bmOffs" : [ # impact score offset in ii file
+  	( offset , length), 
+  	...
+  ]
+}
+```
+
+
 
 ## Query Efficiency
 
@@ -445,10 +630,43 @@ A better solution would be $c=2^8=256$ to use a smaller resolution and fix-byte 
 
 
 
+## Snippet generation
+
+Snippet are generated based on ranking of aggregation of terms based on a certain result budget (typicaly 3).
+
+The more different terms aggregatation occurs in a line of text (a paragrah or a sentence), the more they are ranked.
+
+If the overall ranking score doesn't go well in above process, it tries to find a longer Length Snippet instead of 3.
+
+
+
+## Chinese Query
+
+Chinese query are detected first when the query comes in.
+
+They are dealed dfferently in two main parts:
+
+* chinese query are done 
+* Chinese query has different Snippet length budget 
+
+
+
+### Chinese Snippet Length Budget
+
+As 
+
+* English avg word length = 5.1
+* Chinese avg word length = 1.4~1.65
+* Chinese charactor size  = 2
+
+Thus we have $\frac{5.1/1.65}{2} = 1.54$ times English Snippet Length Budget as Chinese Snippet Length Budget.
+
+
+
 
 ## Design patterns
 
-In query processing, the following design patterns are commenly used to achieve effiency in both time and memory.
+In query processing, the following design patterns are widely (ranking, snippet, etc) used to achieve effiency in both time and memory.
 
 ### List Comprehention 
 
@@ -458,9 +676,13 @@ When It's used, variable constrction time among with other replicative costs are
 
 ### Defered result
 
+Defeted result make stream-like process possible. 
+
 In python, keyword `yield` create a `yielding` object that may defer result from where it's called. In combination with list comprehention and iterable, it would produce the real result only on final iteration.
 
 A dedicated data structure `FixSizedHeap` is commonly used in this project to catch defered result, as the memory would be limited to the size of the Heap, as well keeping a ordered result for certain priority (think of BM25). 
+
+To be specific `sliding window` in Snippet and `Disjuctive/Conjuctive Block Reader` for ii file are designed using this method.
 
 
 
@@ -525,6 +747,29 @@ It doesn't wait till an Inverted List is completed to unload memory, it streams 
 
 ### Query
 
+> What is the standard of judging  Conjunctive or Disjunctive Query? 
+
+In general, when there are expected small amount of results, it's considered disjunction.
+
+See `./modules/query.py` line `111` for detailed infomation.
+
+
+
+> What is the standard of being a good snippet ranking before it fallbacks to single snippet?
+
+See `./modules/Snippet.py` line `52` `53` for more infomation.
+
+
+
+> What's cached? How they are cached?
+
+* Inverted List Blocks
+* Query Results
+* Term Table items
+* URL Table items
+
+They are cached in memery in last recent used manner.
+
 
 
 ### Other
@@ -545,11 +790,31 @@ This project had been use a modified python package  `warc` . It has been modifi
 During this project , a request has been made to fix an deprecation probem.
 (check [Pull Request](https://github.com/utahta/pyvbcode/pull/1) (Japanese) )
 
+
+
 # Future Work 
 
 There are several works can be done easily but requires more careful thoughts
 
+## Complex Query
+
+Support for more complicated query like combinations of conjunction and disjunction.
+
+A parsor may be requried for complex query syntax.
+
+ 
+
 ## Distributed
+
+### Multi Stage Approrach
+
+An parallel version of Lexicon Extracion has been implemetend based on previous result of `docIDwet.tsv `. 
+
+It speed up 5x to the previous run. 
+
+This gives a hint on spliting current Lexicon Extracion to 2 parsing stages for runnning: One for generating docID. The other for distributed detailed care taken Lexicon Extraction for each WET file, for a given starting number of docID.
+
+
 
 ### UUID approach
 
@@ -569,25 +834,20 @@ Considering Hadoop Stream isn't actually efficient, Spark would be a good replac
 
 
 
-### Multi Stage Approrach
-
-An parallel version of Lexicon Extracion has been implemetend based on previous result of `docIDwet.tsv `. 
-
-It speed up 5x to the previous run. 
-
-This gives a hint on spliting current Lexicon Extracion to 2 parsing stages for runnning: One for generating docID. The other for distributed detailed care taken Lexicon Extraction for each WET file, for a given starting number of docID.
-
-
-
 ## Speed up
 
-Change a language like `Go` might incredibaly speed up exection. (But packages?)
+- Change a language like `Go` might incredibaly speed up exection. (But packages?)
 
+- `IDF` calculations may also be pre-computed.
 
+  ​
 
-## Query optimization
+# Limitations
 
-`IDF` calculations may also be pre-computed.
+Conjunction/Disjunction not smart enough.
+
+Query speed is still a problem for very large query result. Why not pre-sort inverted lists so that it's not nessary to parse all item in inverted list?
+
 
 
 
