@@ -1,5 +1,10 @@
-# Inverted Index (II)
-Build Inverted Index upon wet file
+
+
+# Not Google
+
+A Web Search Engine that is not google.
+
+![Figure cached result](miscellaneous/Figure cached result.png)
 
 ### Table of contents
 * [Features](#features)
@@ -36,26 +41,55 @@ Build Inverted Index upon wet file
 * [Development](#development)
 
 
+# Introduction
+
+This project build a text based web search engine for a subset of the internet (~ 1/300 the living public crawlable internet). The purpose of a web search engine is to allow fast and effective information retrival on large amount of data that living on a web.
+
+This project focuses on two main companent that makes a working text based web search engine: Inverted Index building and Query Processing. Inverted Index Building are futher devided into two stages: Lexicon Extraction stage and Merge & Sort stage.
+
+
+
 # Features
+
+### All
+
 * Language detection
-* Chinese support along with latin-character based languages
+* 7 languages support including Chinese (English, French, Germany, Italian, Latin, Spanish, Chinese)
+
+### Inverted Index Building
+
 * Binary I/O and Stroage
 * Progress & Speed display
-* Text Frequncy (TF) in documents
+* Impact Score precomputation
+* Compressed Inverted Index using Blockwise varbyte 
+
+### Query Processing 
+
+* Mordern Web Browser Based Responsive UI (Desktop and Mobile)
+* Conjuntive & Disjunctive Query
+* Automatic Conjuntive or Disjunctive discovery 
+* Smart Snippet Generation
+* Paging support
+* Fast and low cost query based on Impact Score and memory efficient design pattern and index-guessing
+* Speed up via Multilayer Cache Support 
+* Live module reload and cache usage report
 
 # How to run
 ## Requirements
 * Linux/ macOS/ OS with GNU tools
-* Python 3.4+
+* Python 3.5+
+* MongoDB 
+* Redis 
 
 ## Installation
 Please consider the [Recommand for running](#recommand-for-running) section before  Installation. 
 
-If you insist to install directly, It will be okey.
+If you insist to install directly without virtual environment, It will be okey.
 
 ``` bash
 $ pip install -r requirements.txt
 ```
+Notice you **have to** use the packages specified in `requirements.txt`, since there are some packages, though using the same import name in python headers, they use different packages than commonly used ones. Those packages are specialized for this project, and support for extra feature they originally don't have.
 
 ### Recommand for running
 It is recommanded to use virtual environment for python packages to avoid package conflicts.
@@ -74,8 +108,36 @@ $ source .env/bin/activate
 $ pip install -r requirements.txt
 ```
 
+## Use pre-built Inverted Index
+### Files
+There are 4 files that is required before Query process to run :
+``` coffeescript
+- docIDwet.tsv
+- inverted-index-300-with-score.ii
+- mongo-dump.zip
+- redis-dump.rdb
+```
+### Download
+These files are available at AWS for download:
+``` 
+https://s3.amazonaws.com/not-google/Inverted-Index/docIDwet.tsv
+https://s3.amazonaws.com/not-google/Inverted-Index/inverted-index-300-with-score.ii
+https://s3.amazonaws.com/not-google/Inverted-Index/mongo-dump.zip
+https://s3.amazonaws.com/not-google/Inverted-Index/redis-dump.rdb
+```
+### Usage
+Put `docIDwet.tsv` and `inverted-index-300-with-score.ii` into `./data/` dir as they are configured in `config.ini` by default.
+Unzip `mongo-dump.zip` and use `mongorestore` to restore into MongoDB.
+Put `redis-dump.rdb` into redis storage location and restart redis to load DB. Redis storage location can be found at:
+``` bash
+$ redis-cli
+> config get dir
+1) "dir"
+2) "/usr/local/var/db/redis" <- # Here 
+```
 
-## Usage
+
+## Build Inverted Index
 The running of the whole inverted index building has been devided into 3 parts:
 * Download wet files
 * Lexicon extraction
@@ -86,15 +148,15 @@ For the first **Lexicon extraction** stage, use python script `extract_lex`, and
 ### Example usage
 #### Download wet files
 ``` bash
-$ ./scripts/dl.sh 100 
+$ ./scripts/dl.sh 300 
 ```
 This will download `100` wet files to `data/wet`. (change `100` to get more or less)
-#### Lexicon extraction
+#### Lexicon Extraction stage
 ``` bash
 $ python extract_lex.py --urlTable "data/url-table.tsv" data/wet/*.warc.wet.gz | sort > "data/all.lex" 
 ```
 This will extract all lexicons (that in language English, French, Germany, Italian, Latin, Spanish and Chinese) from the `wet` files in `data/wet/`, and write the sorted lexicons to `data/all.lex`.
-#### Sort Merging
+#### Sort Merging stage
 ``` bash
 $ cat  "data/all.lex" | python merge.py > "data/inverted-index.ii"
 ```
@@ -121,7 +183,7 @@ $ ./scripts/merge.sh
 ```
 `extract-all.sh` will individually extract and sort lexicons into fex files to `data/lex`.
 
-`merge.sh` will take all **sorted** lex files and merge them into the final II file `data/inverted-index.ii`.
+`merge.sh` will take all **sorted** lex files and merge them into the final ii file `data/inverted-index.ii`.
 
 All oprations are done in binary.
 
@@ -156,25 +218,36 @@ optional arguments:
 Note that `uuid` isn't tested for use. It was built for compatibity of ditributed system. 
 
 
-## Notes on Running on Servers
+### Notes on Running on Servers
 Scripts are created for copying necessary exectables to server. Use of example:
 
 ``` bash
 $ ./scripts/deploy.sh user@server:path
 ```
 
-### HPC
+#### HPC
 Distributed version of this II building program is not completed, you will not be able to use it on Hadoop or Spark or Hive. However you could use HPC as ordinary server to run the program. 
 
 There were works done for prepration of this program to be distributable. Please read [Future Work > Distributed](#distributed) section.
 
-#### Load Python 3 module
+##### Load Python 3 module
 
 ```bash
 $ module load python
 ```
 
+## HTTP Server
+
+``` bash
+$ python query_http.py
+```
+
+Result:
+
+![Figure Cat](miscellaneous/Figure Cat.png)
+
 # Benchmark
+
 The following tests are done using Macbook Pro 2016 Laptop
 ## Speed
 Sorting and merging speed are significently low compared to `lexicon extraction`.
@@ -251,30 +324,43 @@ Luckily mordern computers has a memory typically much greater than 1GiB. So as l
 
 
 # How it works
-![Sturcture](miscellaneous/Structure.png)
 
-Figure of what `Extract Lexicon` and `Merge` do.
+## Structure 
+
+Overall structure
+
+![Figure Overall Structure](miscellaneous/Figure Overall Structure.png)
+
+Detailed ` Inverted Index Building` Structure explaining what `Extract Lexicon` and `Merge` do.
+
+![Figure Inverted Index Structure](miscellaneous/Figure Inverted Index Structure.png)
+
+
 
 ## File Structure
 
 ``` bash
   ├── README.md  # This file source code
   ├── README.pdf # This file
+  ├── config.ini # Configration file
   ├── data/
+  │   ├── docIDwet.tsv      # (generated) File Index of WET
+  │   ├── expect_terms.tsv  # (generated) For process estimate of ii-build merge stage
   │   ├── inverted-index.ii # (generated) final Inverted List 
-  │   ├── lex/				# (generated) intermediate lexicons Files
+  │   ├── lex/				# (generated, ii-build) intermediate lexicons Files
   │   │   ├── CC-MAIN-20170919112242-20170919132242-00000.lex
   │   │   └── ...
-  │   ├── url-table-table.tsv # (generated) Index of URL Table
-  │   ├── url-table.tsv		  # (generated) URL Table
-  │   ├── wet/				  # (downloaded) WET Files
-  │   │   ├── CC-MAIN-20170919112242-20170919132242-00000.warc.wet.gz
+  │   ├── url-table-table.tsv # (generated, deprecated) Index of URL Table
+  │   ├── url-table.tsv		  # (generated, deprecated) URL Table
+  │   ├── wet/				  # (downloaded, uncompressed) WET Files
+  │   │   ├── CC-MAIN-20170919112242-20170919132242-00000.warc.wet
   │   │   └── ...
   │   └── wet.paths			  # WET Files URLs
-  ├── decode-test.py		  # Test code for lexicon file verification
-  ├── extract_lex.no_language.py # Dumb mode version of `extract_lex.py`
-  ├── extract_lex.py		  # main file for `Lexicon Extraction`
-  ├── merge.py				  # main file for `Merge`
+  ├── decode-test.py		  # (ii-build) Test code for lexicon file verification
+  ├── extract_lex.no_language.py # (ii-build) Dumb mode version of `extract_lex.py`
+  ├── extract_lex.py		  # (ii-build) main file for `Lexicon Extraction`
+  ├── index.html              # client side index html
+  ├── merge.py				  # (ii-build) main file for `Merge`
   ├── miscellaneous/		  # miscellaneous files
   │   ├── ...
   │   ├── deprecated/
@@ -286,22 +372,103 @@ Figure of what `Extract Lexicon` and `Merge` do.
   │   └── testbeds/
   │       └── ...
   ├── modules/				  # Modules
-  │   └── NumberGenerator.py  # binary compatible docID generator 
+  │   ├── BM25.py				# (query) BM25 computation
+  │   ├── BlockReader.py		# (query) High level Blockwized II Reader
+  │   ├── Heap.py				# (query) Customized Data Structures
+  │   ├── IndexBlock.py			# (query, ii-build) Blockwized II Reader and Writer 
+  │   ├── LexReader.py			# (query) WET file reader
+  │   ├── NumberGenerator.py  	# (ii-build) binary compatible docID generator 
+  │   ├── Snippet.py			# (query) snippet generation 
+  │   └── query.py				# (query) main Query process
+  ├── query_cmd.py			  # (query, deprecated) cmd line interface for query processing
+  ├── query_http.py			  # (query) HTTP interface for query processing
   ├── requirements.txt		  # requirement for python dependencies
   └── scripts/
-      ├── deploy.sh*		  # helper script for deploy 
-      ├── dl.sh*			  # helper script for download
-      ├── extract-all.sh*	  # main script for `Lexicon Extraction`
-      ├── generate_toc.rb*	  # helper script for markdown ToC generation
-      └── merge.sh*			  # main script for `Merge`
+  │   ├── deploy.sh*		  # (ii-build) helper script for deploy 
+  │   ├── dl.sh*			  # (ii-build) helper script for download
+  │   ├── expect_terms.sh*    # (ii-build) `expect_terms.tsv` generator
+  │   ├── extract-all.sh*	  # (ii-build) main script for `Lexicon Extraction`
+  │   ├── extract-doc-parallel.sh* # (ii-build) parallel URL Table Rebuilder
+  │   ├── generate_toc.rb*	  # (ii-build) helper script for markdown ToC generation
+  │   └── merge.sh*			  # (ii-build) main script for `Merge`
+  └── static/				# Static files to server client
+    ├── lib/				# library used
+    │   └── ...
+    ├── main.js				# main js file
+    └── style.css			# main css file
+
 ```
 
+
+## Query Efficiency
+
+Several techniques has been used to speed up and reduce memery usage in query
+*  Precomputed impact score (see [Ranking>BM25](#Precomputed impact score)) has reduced live ranking score compution to 100x times on large query result
+*  Design pattern: Defered result   (see [Design patterns](#Defered result))
+*  Index guessing for wet files
+
+As wet file and docID grows, searching for a specific wet file may take longer time as for each query may call multiple times of them at least. Thus Index guessing are used to speed up the time to find which wet file are to read for a given docID.
+
+Index guessing are done in very simple algorithm: $$\frac{docID}{|\text{WET}|_{docIDs, avg}}$$
+
+as docID are assigned in order of WET files.
+
+
+
+## Ranking
+
+### BM25
+
+Result to return for a given query are mainly base on ranking BM25.
+
+$$BM25(d, Q) =\sum_{t\in Q}IDF(t) \times \frac{f_{d,t}}{K_d+f_{d,t}}\times (k_1+1)$$
+
+where $$ IDF(t) = log\frac{N-n_t+0.5}{n_t+0.5}$$
+
+and $$K_d = k_1 \times (1-b+b\times \frac{|d|}{|d|_{avg}})$$
+
+### Precomputed impact score 
+
+We can easily know that $\frac{f_{d,t}}{K+f_{d,t}}$ can be precomputed.
+
+Since $\frac{f_{d,t}}{K+f_{d,t}} \in [0,1)$ ,
+
+In order to store them in ii file efficiently, linear quntization is used:
+
+$$\left \lfloor c\times \frac{f_{d,t}}{K+f_{d,t}} \right \rfloor$$
+
+where $c=2^{(8-1)\times2}=16384$.
+
+Chosing $c=2^{(8-1)\times2}$  dues to support for large resolution and varbyte encoding in max of 2 bytes.
+
+A better solution would be $c=2^8=256$ to use a smaller resolution and fix-byte encoding as they would store always in 1 byte, however decisiton has been made and precomputation is running at the time it has to be done for later stages.
+
+
+
+
+## Design patterns
+
+In query processing, the following design patterns are commenly used to achieve effiency in both time and memory.
+
+### List Comprehention 
+
+This is a concept that is very close to lambda expression in many other languages than python.
+
+When It's used, variable constrction time among with other replicative costs are reduced to improve overall execition speed.
+
+### Defered result
+
+In python, keyword `yield` create a `yielding` object that may defer result from where it's called. In combination with list comprehention and iterable, it would produce the real result only on final iteration.
+
+A dedicated data structure `FixSizedHeap` is commonly used in this project to catch defered result, as the memory would be limited to the size of the Heap, as well keeping a ordered result for certain priority (think of BM25). 
 
 
 
 ## Questions
 
-> Why so slow?
+### Inverted Index
+
+> Why inverted index building so slow?
 
 Because Language Detect and Chinese Word Seperate uses HMM model (pre-trained) to compute. They are computational intensive.
 
@@ -356,29 +523,35 @@ It doesn't wait till an Inverted List is completed to unload memory, it streams 
 
 
 
+### Query
+
+
+
+### Other
+
 > Why not C++
 
-Beacuse most C++ statements are in not-human-like language, I want to keep myself human :)
+Beacuse packages on high level langauges are richer than C++.
 
-Actually there are language that are close to C++ level of proformance  e.g. Swift, Go 
-
-The real reason are:
-
-* Packages on high level langauges are richer than C++
-
-* I'm personally not confident with C++ knowledge (learn to use STL someday?)
-
-* C++ design patterns are not singlar, roughly going into it would cause mix use of different "flavor  of codes", which I'm not fond of.
-
-  ​
+If effiecency is the convern, there are language that are close to C++ level of proformance  e.g. Swift, Go 
 
 
+
+## Other open source library
+
+This project had been use a modified python package  `warc` . It has been modified to support reading and fast lookup`wet`  files to adapt to this project 
+(check [warc3-wet](https://github.com/Willian-Zhang/warc3) ). 
+
+During this project , a request has been made to fix an deprecation probem.
+(check [Pull Request](https://github.com/utahta/pyvbcode/pull/1) (Japanese) )
 
 # Future Work 
 
 There are several works can be done easily but requires more careful thoughts
 
 ## Distributed
+
+### UUID approach
 
 The whole program is written in a `Map and Reduce` concept. They can be easily ported to Hadoop MapReduce. Here is a list of what has been done:
 
@@ -396,27 +569,25 @@ Considering Hadoop Stream isn't actually efficient, Spark would be a good replac
 
 
 
+### Multi Stage Approrach
+
+An parallel version of Lexicon Extracion has been implemetend based on previous result of `docIDwet.tsv `. 
+
+It speed up 5x to the previous run. 
+
+This gives a hint on spliting current Lexicon Extracion to 2 parsing stages for runnning: One for generating docID. The other for distributed detailed care taken Lexicon Extraction for each WET file, for a given starting number of docID.
+
+
+
 ## Speed up
 
 Change a language like `Go` might incredibaly speed up exection. (But packages?)
-
-How about keep using python? Regex used in the current implentation can be further optimized to speed up.
 
 
 
 ## Query optimization
 
-Query process requires to read out the wet file efficiently, building index on wet file is considered nessary.
-
-This project had been use a modified python package  `warc` . It has been modified to support reading `wet` files to adapt to this project (check [warc3-wet](https://github.com/Willian-Zhang/warc3) ). Futher modification is required for support fast lookup in wet files.
-
-
-
-Also `ii` file could be further compressed using text compression among with incremental docIDs (which will not work on UUID aka. distibuted system) block by block.
-
-
-
-`IDF` calculations may also be pre-calculated.
+`IDF` calculations may also be pre-computed.
 
 
 
